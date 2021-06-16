@@ -1,5 +1,5 @@
 import torch
-import torch.nn
+import torch.nn as nn
 
 class WassersteinLoss():
 
@@ -9,8 +9,9 @@ class WassersteinLoss():
     def __call__(self, y):
         return y[:, 0].sum()
 
-    def gradientPenalty(self):
+    def gradientPenalty(self, real, generated, dis_net, ):
         pass
+        
 
 
 class ModelConfig():
@@ -29,6 +30,7 @@ class BaseGAN():
         dimLatentVector: int,
         baseLearningRate: float,
         device: str,
+        gradientPenalty=True
     ):
         if device not in ['cuda:0', 'cpu']:
             raise ValueError(f"Device must be either cuda:0 or cpu, not whatever nonsense {device} is.")
@@ -38,6 +40,7 @@ class BaseGAN():
         self.device = device
         self.config.dimLatentVector = dimLatentVector
         self.config.baseLearningRate = baseLearningRate
+        self.config.gradientPenalty = gradientPenalty
 
         self.generator = None
         self.gen_optimizer = None
@@ -46,12 +49,12 @@ class BaseGAN():
         self.dis_optimizer = None
 
     def setGen(self, net, optimizer):
-        self.generator = net.to(device)
+        self.generator = net.to(self.device)
         self.gen_optimizer = optimizer
         self.gen_optimizer.zero_grad()
 
     def setDis(self, net, optimizer):
-        self.discriminator = net.to(device) 
+        self.discriminator = net.to(self.device) 
         self.dis_optimizer = optimizer
         self.dis_optimizer.zero_grad() 
 
@@ -62,7 +65,7 @@ class BaseGAN():
         return self.config.calculateLoss(*args)
 
     def _createNoise(self, batchSize):
-        noise = torch.randn(batchSize, self.dimLatentVector)
+        noise = torch.randn(batchSize, self.config.dimLatentVector)
         return noise
 
     def trainGen(self, batchSize):
@@ -93,7 +96,7 @@ class BaseGAN():
         if not self._hasGenAndDis():
             raise AttributeError("Training requires both a discriminator and generator to be set.")
         if not self._hasOptimizers():
-            raise AttributerErrors("Training requires optimizers to be set.")
+            raise AttributeError("Training requires optimizers to be set.")
         
         self.dis_optimizer.zero_grad()
         self.gen_optimizer.zero_grad()
@@ -104,12 +107,42 @@ class BaseGAN():
         
         # Fake
         inputNoise = self._createNoise(x.size()[0])
-        fakePred = self.discriminator(inputNoise)
+        fakeX = self.generator(inputNoise).to("cuda:0")
+        fakePred = self.discriminator(fakeX)
         fakeLoss = self.calculateLoss(fakePred)
 
-        # TKTK maybe there's some gradient penalty shit here?
-
         totalLoss = realLoss + fakeLoss
+
+        # TKTK maybe there's some gradient penalty shit here?
+        if self.config.gradientPenalty:
+
+            # Generate the interpolated observations
+            batchSize = x.size()[0]
+            epsilon = torch.rand(batchSize, 1)
+            epsilon = epsilon.expand(batchSize, int(x.nelement() /
+                                                    batchSize)).contiguous().view(
+                                                        x.size())
+            epsilon = epsilon.to(self.device)
+
+            mixedObs = epsilon * x + (1-epsilon) * fakeX
+            mixedObs.requires_grad = True
+
+            mixedPred = self.discriminator(mixedObs).sum()
+
+            gradients = torch.autograd.grad(
+                outputs=mixedPred,
+                inputs=mixedObs,
+                create_graph=True,
+                retain_graph=True
+            )
+
+            print(gradients)
+
+            gradients = gradients[0].view(batchSize, -1)
+            gradients = (gradients * gradients).sum(dim=1).sqrt()
+            gradientPenalty =((gradients - 1) ** 2).sum() * 10
+
+            totalLoss += gradientPenalty
 
         totalLoss.backward()
         self.dis_optimizer.step()
@@ -133,9 +166,47 @@ class BaseGAN():
 
 if __name__ == "__main__":
 
-    a = BaseGAN(10, 5, "cpu")
+    import torch.optim as optim
+
+    class RealDiscriminator(nn.Module):
+
+        def __init__(self):
+            super(RealDiscriminator, self).__init__()
+            self.linear = nn.Linear(128, 128)
+            
+        def forward(self, x):
+            a = torch.rand(x.shape[0], 1).to("cuda:0")
+            b = x.sum(dim = [1, 2])
+
+            return a + b
+
+    class RealGenerator(nn.Module):
+
+        def __init__(self, dims):
+            super(RealGenerator, self).__init__()
+            self.dims = dims
+            self.linear = nn.Linear(128, 128)
+
+        def forward(self, x):
+
+            return torch.rand((x.shape[0], ) + self.dims)
+
+    a = BaseGAN(10, 5, 'cuda:0')
+    
+    gen = RealGenerator((100, 100))
+    dis = RealDiscriminator()
+
+    genOpti = optim.AdamW(filter(lambda p: p.requires_grad, gen.parameters()))
+    disOpti = optim.AdamW(filter(lambda p: p.requires_grad, dis.parameters()))
 
     a.setLoss(WassersteinLoss())
+    a.setGen(gen, genOpti)
+    a.setDis(dis, disOpti)
 
-    l = torch.randn(32, 1)
-    print(a.calculateLoss(l))
+    realBatch = torch.rand(10, 100, 100).to("cuda:0")
+
+    l = a.trainDis(realBatch)
+
+    print(l)
+
+    

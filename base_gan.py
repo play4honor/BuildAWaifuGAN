@@ -180,20 +180,8 @@ if __name__ == "__main__":
 
             return a + b
 
-    class RealGenerator(nn.Module):
-
-        def __init__(self, dims):
-            super(RealGenerator, self).__init__()
-            self.dims = dims
-            self.linear = nn.Linear(128, 128)
-
-        def forward(self, x):
-
-            return torch.rand((x.shape[0], ) + self.dims)
-
     a = BaseGAN(10, 5, 'cuda:0')
-    
-    gen = RealGenerator((100, 100))
+
     dis = RealDiscriminator()
 
     genOpti = optim.AdamW(filter(lambda p: p.requires_grad, gen.parameters()))

@@ -4,10 +4,11 @@ import torch.nn as nn
 class WassersteinLoss():
 
     def __init__(self):
+        self.transform = torch.nn.Sigmoid()
         pass
 
     def __call__(self, y):
-        return y[:, 0].sum()
+        return self.transform(y[:, 0]).mean()
 
     def gradientPenalty(self, real, generated, dis_net, ):
         pass
@@ -65,7 +66,7 @@ class BaseGAN():
         return self.config.calculateLoss(*args)
 
     def _createNoise(self, batchSize):
-        noise = torch.randn(batchSize, self.config.dimLatentVector)
+        noise = torch.randn((batchSize, self.config.dimLatentVector))
         return noise
 
     def trainGen(self, batchSize):
@@ -78,7 +79,7 @@ class BaseGAN():
         self.dis_optimizer.zero_grad()
         self.gen_optimizer.zero_grad()
 
-        inputNoise = self._createNoise(batchSize)
+        inputNoise = self._createNoise(batchSize).to(self.device)
 
         fakeOut = self.generator(inputNoise)
         fakePred = self.discriminator(fakeOut)
@@ -89,7 +90,7 @@ class BaseGAN():
         fakeLoss.backward()
         self.gen_optimizer.step()
 
-        return fakeLoss.item()
+        return fakeLoss.item(), fakeOut
 
 
     def trainDis(self, x):
@@ -106,8 +107,8 @@ class BaseGAN():
         realLoss = -self.calculateLoss(realPred)
         
         # Fake
-        inputNoise = self._createNoise(x.size()[0])
-        fakeX = self.generator(inputNoise).to("cuda:0")
+        inputNoise = self._createNoise(x.size()[0]).to(self.device)
+        fakeX = self.generator(inputNoise)
         fakePred = self.discriminator(fakeX)
         fakeLoss = self.calculateLoss(fakePred)
 
@@ -125,7 +126,8 @@ class BaseGAN():
             epsilon = epsilon.to(self.device)
 
             mixedObs = epsilon * x + (1-epsilon) * fakeX
-            mixedObs.requires_grad = True
+            #mixedObs.requires_grad = True
+
 
             mixedPred = self.discriminator(mixedObs).sum()
 
@@ -135,8 +137,6 @@ class BaseGAN():
                 create_graph=True,
                 retain_graph=True
             )
-
-            print(gradients)
 
             gradients = gradients[0].view(batchSize, -1)
             gradients = (gradients * gradients).sum(dim=1).sqrt()

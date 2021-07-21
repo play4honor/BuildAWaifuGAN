@@ -55,6 +55,8 @@ class ProGen(nn.Module):
         self.toRGB.append(nn.Conv2d(newLayerDepth, self.outputDepth, 1))
 
         self.scales.append(newLayerDepth)
+
+        
     
     
     def forward(self, x):
@@ -83,6 +85,9 @@ class ProGen(nn.Module):
             x = self.alpha * y + (1.0-self.alpha) * x
 
         return x
+
+    def num_params(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 class ProDis(nn.Module):
 
@@ -168,8 +173,16 @@ class ProDis(nn.Module):
 
         return x
 
+    def num_params(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
 
 if __name__ == '__main__':
+
+    from torch.utils.tensorboard import SummaryWriter
+    import torchvision
+
+    writer = SummaryWriter()
 
     test_gen = ProGen(
         latentDim=128,
@@ -187,6 +200,12 @@ if __name__ == '__main__':
     out = test_gen(x)
     print(out.shape)
 
+    grid = torchvision.utils.make_grid(out, nrow=4)
+    writer.add_image("gen", grid, 0)
+
+    loss = test_dis(out)
+    writer.add_scalar("loss", loss.mean(), 0)
+
     p = test_dis(out)
     print(p.shape)
 
@@ -198,8 +217,14 @@ if __name__ == '__main__':
     out = test_gen(x)
     print(out.shape)
 
+    grid = torchvision.utils.make_grid(out, nrow=4)
+    writer.add_image("gen", grid, 1)
+
     p = test_dis(out)
     print(p.shape)
+
+    loss = test_dis(out)
+    writer.add_scalar("loss", loss.mean(), 1)
 
     test_gen.setAlpha(0.5)
     test_dis.setAlpha(0.5)
@@ -208,6 +233,11 @@ if __name__ == '__main__':
 
     out = test_gen(x)
     print(out.shape)
+
+    grid = torchvision.utils.make_grid(out, nrow=4)
+    writer.add_image("gen", grid, 2)
+
+    writer.close()
 
     p = test_dis(out)
     print(p.shape)

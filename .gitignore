@@ -1,2 +1,4 @@
 img/
 .vscode/
+runs/
+__pycache__/

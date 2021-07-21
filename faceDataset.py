@@ -16,6 +16,7 @@ class FaceDataset(Dataset):
 
         self.ext = ext
         self.path = path
+        self.downsampler = None
 
         if self.ext not in self.IMG_EXT:
             raise ValueError(f"{ext} is not a valid image extension")
@@ -39,11 +40,27 @@ class FaceDataset(Dataset):
         
         p = self.fileList[idx]
         p = torchvision.io.read_image(p)
-        return p.type(torch.DoubleTensor)
+        if self.downsampler is not None:
+            return self.downsampler(p.type(torch.FloatTensor))
+        else:
+            return p.type(torch.FloatTensor)
 
     def __len__(self):
 
         return len(self.fileList)
+
+    def setScale(self, scale):
+        """
+        Set the scale of the images
+        """
+        self.scale = scale
+        self.downsampler = torchvision.transforms.Resize((self.scale, self.scale))
+
+    def view_image(self, idx):
+        """
+        View the image at the given index
+        """
+        pass
 
 if __name__ == '__main__':
 
@@ -56,3 +73,10 @@ if __name__ == '__main__':
     print(b)
     print(b.shape)
     print(b.dtype)
+
+    faceLoader.dataset.setScale(64)
+
+    c = next(iter(faceLoader))
+
+    print(c)
+    print(c.shape)

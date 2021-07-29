@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn.modules.container import ModuleList
+from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD
 
 class ProGen(nn.Module):
 
@@ -26,18 +26,18 @@ class ProGen(nn.Module):
         self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
 
         # Latent to 4x4
-        self.fromLatent = nn.Linear(latentDim, 4*4*firstLayerDepth)
+        self.fromLatent = EqualizedLinear(latentDim, 4*4*firstLayerDepth)
 
         self.layers = nn.ModuleList()
         self.scales = [firstLayerDepth]
         
         # Initial layer
         self.layers.append(nn.ModuleList())
-        self.layers[0].append(nn.Conv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
+        self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
 
         # Last Convolution -> RGB
         self.toRGB = nn.ModuleList()
-        self.toRGB.append(nn.Conv2d(firstLayerDepth, self.outputDepth, 1))
+        self.toRGB.append(EqualizedConv2d(firstLayerDepth, self.outputDepth, 1))
 
         
     def setAlpha(self, alpha: float):
@@ -49,15 +49,13 @@ class ProGen(nn.Module):
     def addLayer(self, newLayerDepth):
 
         self.layers.append(nn.ModuleList())
-        self.layers[-1].append(nn.Conv2d(self.scales[-1], newLayerDepth, 3, padding=1))
-        self.layers[-1].append(nn.Conv2d(newLayerDepth, newLayerDepth, 3, padding=1))
+        self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
+        self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
         
-        self.toRGB.append(nn.Conv2d(newLayerDepth, self.outputDepth, 1))
+        self.toRGB.append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
 
         self.scales.append(newLayerDepth)
 
-        
-    
     
     def forward(self, x):
         
@@ -89,6 +87,7 @@ class ProGen(nn.Module):
     def num_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
+
 class ProDis(nn.Module):
 
     def __init__(
@@ -96,6 +95,7 @@ class ProDis(nn.Module):
         firstLayerDepth: int,
         inputDepth: int=3,
         leakiness: float=0.2,
+        minibatchSD: bool=True,
     ):
 
         super(ProDis, self).__init__()
@@ -116,15 +116,19 @@ class ProDis(nn.Module):
         
         # Initial layer
         self.layers.append(nn.ModuleList())
-        self.layers[0].append(nn.Conv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
+        firstLayerActualDepth = firstLayerDepth
+        if minibatchSD:
+            self.layers[0].append(MiniBatchSD())
+            firstLayerActualDepth += 1
+        self.layers[0].append(EqualizedConv2d(firstLayerActualDepth, firstLayerDepth, 3, padding=1))
         
         # Output Layer
-        self.outputLayer = nn.Linear(firstLayerDepth*4*4, firstLayerDepth)
-        self.finalLayer = nn.Linear(firstLayerDepth, 1)
+        self.outputLayer = EqualizedLinear(firstLayerDepth*4*4, firstLayerDepth)
+        self.finalLayer = EqualizedLinear(firstLayerDepth, 1)
 
         # RGB -> layer depth
         self.fromRGB = nn.ModuleList()
-        self.fromRGB.append(nn.Conv2d(self.inputDepth, firstLayerDepth, 1))
+        self.fromRGB.append(EqualizedConv2d(self.inputDepth, firstLayerDepth, 1))
 
         
     def setAlpha(self, alpha: float):
@@ -136,10 +140,9 @@ class ProDis(nn.Module):
     def addLayer(self, newLayerDepth):
 
         self.layers.append(nn.ModuleList())
-        self.layers[-1].append(nn.Conv2d(newLayerDepth, newLayerDepth, 3, padding=1))
-        self.layers[-1].append(nn.Conv2d(newLayerDepth, self.scales[-1], 3, padding=1))
+        self.layers[-1].append(EqualizedConv2d(newLayerDepth, self.scales[-1], 3, padding=1))
 
-        self.fromRGB.append(nn.Conv2d(self.inputDepth, newLayerDepth, 1))
+        self.fromRGB.append(EqualizedConv2d(self.inputDepth, newLayerDepth, 1))
 
         self.scales.append(newLayerDepth)
     
@@ -179,10 +182,6 @@ class ProDis(nn.Module):
 
 if __name__ == '__main__':
 
-    from torch.utils.tensorboard import SummaryWriter
-    import torchvision
-
-    writer = SummaryWriter()
 
     test_gen = ProGen(
         latentDim=128,
@@ -200,11 +199,7 @@ if __name__ == '__main__':
     out = test_gen(x)
     print(out.shape)
 
-    grid = torchvision.utils.make_grid(out, nrow=4)
-    writer.add_image("gen", grid, 0)
-
     loss = test_dis(out)
-    writer.add_scalar("loss", loss.mean(), 0)
 
     p = test_dis(out)
     print(p.shape)
@@ -217,15 +212,10 @@ if __name__ == '__main__':
     out = test_gen(x)
     print(out.shape)
 
-    grid = torchvision.utils.make_grid(out, nrow=4)
-    writer.add_image("gen", grid, 1)
-
     p = test_dis(out)
     print(p.shape)
 
     loss = test_dis(out)
-    writer.add_scalar("loss", loss.mean(), 1)
-
     test_gen.setAlpha(0.5)
     test_dis.setAlpha(0.5)
 
@@ -233,11 +223,6 @@ if __name__ == '__main__':
 
     out = test_gen(x)
     print(out.shape)
-
-    grid = torchvision.utils.make_grid(out, nrow=4)
-    writer.add_image("gen", grid, 2)
-
-    writer.close()
 
     p = test_dis(out)
     print(p.shape)

@@ -49,6 +49,12 @@ class FaceDataset(Dataset):
 
         return len(self.fileList)
 
+    def getScale(self):
+        """
+        Get the scale of the images
+        """
+        return self.scale
+
     def setScale(self, scale):
         """
         Set the scale of the images
@@ -64,19 +70,33 @@ class FaceDataset(Dataset):
 
 if __name__ == '__main__':
 
-    a = FaceDataset("./img/input")
+    a = FaceDataset("./sample_data")
 
-    faceLoader = DataLoader(a, batch_size=32, shuffle=True)
+    faceLoader = DataLoader(a, batch_size=16, shuffle=True)
+
+    # faceLoader.dataset.setScale(256)
 
     b = next(iter(faceLoader))
 
-    print(b)
+    print(a[0])
+
+    torchvision.utils.save_image(a[0], "single_image.png", normalize=True)
+
     print(b.shape)
     print(b.dtype)
 
+    torchvision.utils.save_image(b, "full_scale.png", normalize=True)
+
+    faceLoader.dataset.setScale(128)
+
+    b = next(iter(faceLoader))
+
+    grid = torchvision.utils.make_grid(b, nrow=4)
+    torchvision.utils.save_image(grid, "half_scale.png", normalize=True)
+
     faceLoader.dataset.setScale(64)
 
-    c = next(iter(faceLoader))
+    b = next(iter(faceLoader))
 
-    print(c)
-    print(c.shape)
+    grid = torchvision.utils.make_grid(b, nrow=4)
+    torchvision.utils.save_image(grid, "quarter_scale.png", normalize=True)

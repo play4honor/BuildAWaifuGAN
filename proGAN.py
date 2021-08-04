@@ -1,6 +1,18 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD
+
+class Interpolator2x(nn.Module):
+    def __init__(self):
+
+        super(Interpolator2x, self).__init__()
+        self.scale = 2
+        self.mode = 'bilinear'
+        
+    def forward(self, x):
+        return F.interpolate(x, scale_factor=self.scale, mode=self.mode, align_corners=False)
+
 
 class ProGen(nn.Module):
 
@@ -23,7 +35,8 @@ class ProGen(nn.Module):
         self.leakyReLU = nn.LeakyReLU(leakiness)
 
         # Initialize upsampler
-        self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
+        #self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
+        self.upsampler = Interpolator2x()
 
         # Latent to 4x4
         self.fromLatent = EqualizedLinear(latentDim, 4*4*firstLayerDepth)

@@ -1,4 +1,4 @@
-from baseGan import WassersteinLoss, ModelConfig, BaseGAN, 
+from baseGan import WassersteinLoss, ModelConfig, BaseGAN
 from proGAN import ProDis, ProGen, ProGANScheduler
 from faceDataset import FaceDataset
 
@@ -11,6 +11,10 @@ import torchvision
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(device)
+
+use_greyscale = True
+channels = 1 if use_greyscale else 3
+
 faceDS = FaceDataset("./data", greyscale=False)
 
 trainLoader = DataLoader(faceDS, batch_size=32, shuffle=True)
@@ -21,12 +25,12 @@ gan = BaseGAN(128, 0.01, device)
 
 gan.setLoss(WassersteinLoss())
 
-generator = ProGen(latentDim=128, firstLayerDepth=128, outputDepth=3)
+generator = ProGen(latentDim=128, firstLayerDepth=128, outputDepth=channels)
 genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()))
 
 gan.setGen(generator, genOptim)
 
-discriminator = ProDis(firstLayerDepth=128, inputDepth=3)
+discriminator = ProDis(firstLayerDepth=128, inputDepth=channels)
 disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)

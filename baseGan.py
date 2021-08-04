@@ -5,7 +5,6 @@ class WassersteinLoss():
 
     def __init__(self):
         self.transform = torch.nn.Sigmoid()
-        pass
 
     def __call__(self, y):
         return self.transform(y[:, 0]).mean()
@@ -157,7 +156,7 @@ class BaseGAN():
 
             gradients = gradients[0].view(batchSize, -1)
             gradients = (gradients * gradients).sum(dim=1).sqrt()
-            gradientPenalty =((gradients - 1) ** 2).sum() * 10
+            gradientPenalty = ((gradients - 1) ** 2).mean() * 10
 
             totalLoss += gradientPenalty
 

@@ -11,7 +11,7 @@ import torchvision
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(device)
-faceDS = FaceDataset("./sample_data")
+faceDS = FaceDataset("./data", greyscale=False)
 
 trainLoader = DataLoader(faceDS, batch_size=32, shuffle=True)
 
@@ -21,17 +21,18 @@ gan = BaseGAN(128, 0.01, device)
 
 gan.setLoss(WassersteinLoss())
 
-generator = ProGen(latentDim=128, firstLayerDepth=64)
+generator = ProGen(latentDim=128, firstLayerDepth=128, outputDepth=3)
 genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()))
 
 gan.setGen(generator, genOptim)
 
-discriminator = ProDis(firstLayerDepth=64)
+discriminator = ProDis(firstLayerDepth=128, inputDepth=3)
 disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)
 
-scheduler = ProGANScheduler(2, len(trainLoader))
+scheduler = ProGANScheduler(5, len(trainLoader))
+num_epochs = 15
 
 # Training
 
@@ -44,7 +45,7 @@ if __name__ == "__main__":
 
     j = 0
 
-    for epoch in range(10):
+    for epoch in range(num_epochs):
         print(f"starting epoch {epoch}...")
 
         if scheduler.decide_scale(epoch):
@@ -53,25 +54,23 @@ if __name__ == "__main__":
             curr_scale = trainLoader.dataset.getScale()
             trainLoader.dataset.setScale(curr_scale*2)
             # TKTK: Add a method to base_gan to do this whole operation
-            gan.generator.addLayer(64)
-            gan.discriminator.addLayer(64)
+            gan.generator.addLayer(128)
+            gan.discriminator.addLayer(128)
             gan.generator.to(device)
             gan.discriminator.to(device)
             
         tbStep = 0
 
         for i, data in enumerate(trainLoader):
-            print(f"starting batch {i} of epoch {epoch}...")
             x = data.to(device)
 
             alpha = scheduler.get_alpha(epoch, i)
-            print(f"alpha is {alpha}")
             gan.generator.setAlpha(alpha)
             gan.discriminator.setAlpha(alpha)
 
             stepLossDis = gan.trainDis(x)
 
-            stepLossGen, outputs = gan.trainGen(16)
+            stepLossGen, outputs = gan.trainGen(32)
 
             #if i % 10 == 9:
             if True:

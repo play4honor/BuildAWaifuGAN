@@ -34,6 +34,9 @@ class ProGen(nn.Module):
         # Initial layer
         self.layers.append(nn.ModuleList())
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
+        self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
+        self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
+        self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
 
         # Last Convolution -> RGB
         self.toRGB = nn.ModuleList()
@@ -50,7 +53,9 @@ class ProGen(nn.Module):
 
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
+        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
+        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         
         self.toRGB.append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
 

@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torchvision
+from torchvision.io import ImageReadMode
 import os
 
 
@@ -8,7 +9,7 @@ class FaceDataset(Dataset):
     
     IMG_EXT = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp')
 
-    def __init__(self, path, recursive=True, ext=".jpg"):
+    def __init__(self, path, greyscale=False, ext=".jpg"):
         """
         This is a docstring
         """
@@ -17,6 +18,8 @@ class FaceDataset(Dataset):
         self.ext = ext
         self.path = path
         self.downsampler = None
+
+        self.readMode = ImageReadMode.GRAY if greyscale else ImageReadMode.UNCHANGED
 
         if self.ext not in self.IMG_EXT:
             raise ValueError(f"{ext} is not a valid image extension")
@@ -39,7 +42,7 @@ class FaceDataset(Dataset):
     def __getitem__(self, idx):
         
         p = self.fileList[idx]
-        p = torchvision.io.read_image(p)
+        p = torchvision.io.read_image(p, self.readMode)
         if self.downsampler is not None:
             return self.downsampler(p.type(torch.FloatTensor))
         else:
@@ -70,7 +73,7 @@ class FaceDataset(Dataset):
 
 if __name__ == '__main__':
 
-    a = FaceDataset("./sample_data")
+    a = FaceDataset("./sample_data", greyscale=True)
 
     faceLoader = DataLoader(a, batch_size=16, shuffle=True)
 

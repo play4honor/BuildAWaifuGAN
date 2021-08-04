@@ -4,3 +4,5 @@ runs/
 __pycache__/
 data/
 raw_data/
+sample_data/
+*.png

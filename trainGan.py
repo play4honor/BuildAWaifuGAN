@@ -1,5 +1,5 @@
-from baseGan import WassersteinLoss, ModelConfig, BaseGAN, ProGANScheduler
-from proGAN import ProDis, ProGen
+from baseGan import WassersteinLoss, ModelConfig, BaseGAN, 
+from proGAN import ProDis, ProGen, ProGANScheduler
 from faceDataset import FaceDataset
 
 import torch

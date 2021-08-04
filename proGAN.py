@@ -184,6 +184,23 @@ class ProDis(nn.Module):
     def num_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
+class ProGANScheduler():
+
+    """Controls scheduling for progressive GAN alpha (layer mixing) and scaling
+    up, in terms of epochs."""
+    def __init__(self, epochs_per_step, num_batches):
+        assert epochs_per_step > 1
+        self.epochs_per_step = epochs_per_step
+        self.num_batches = num_batches
+
+    def get_alpha(self, epoch, batch):
+        if int(epoch / self.epochs_per_step) % 2 == 0:
+            return 0.0
+        else:
+            return 1 - ((1 + batch + (epoch % self.epochs_per_step) * self.num_batches) / (1 + self.epochs_per_step * self.num_batches))
+    
+    def decide_scale(self, epoch):
+        return (epoch % (2 * self.epochs_per_step) == self.epochs_per_step) & (epoch != 0)
 
 if __name__ == '__main__':
 

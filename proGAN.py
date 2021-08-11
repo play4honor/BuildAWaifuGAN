@@ -70,10 +70,10 @@ class ProGen(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         
         self.toRGB.append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
 
@@ -166,10 +166,10 @@ class ProDis(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         
         self.fromRGB.append(EqualizedConv2d(self.inputDepth, newLayerDepth, 1))
 

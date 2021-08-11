@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD
+from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD, WeirdoNorm
 
 class Interpolator2x(nn.Module):
     def __init__(self):
@@ -48,10 +48,10 @@ class ProGen(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
         self.layers[0].append(nn.LeakyReLU(self.leakiness))
-        # self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
+        self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
         self.layers[0].append(nn.LeakyReLU(self.leakiness))
-        # self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
+        self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
 
         # Last Convolution -> RGB
         self.toRGB = nn.ModuleList()
@@ -69,10 +69,10 @@ class ProGen(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         
         self.toRGB.append(nn.ModuleList())
         self.toRGB[-1].append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
@@ -172,10 +172,8 @@ class ProDis(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         
         self.fromRGB.append(nn.ModuleList())
         self.fromRGB[-1].append(EqualizedConv2d(self.inputDepth, newLayerDepth, 1))

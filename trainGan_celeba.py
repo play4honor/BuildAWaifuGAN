@@ -88,7 +88,7 @@ disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)
 
-scheduler = ProGANScheduler(10, len(trainLoader), scale_steps=4)
+scheduler = ProGANScheduler(5, len(trainLoader), scale_steps=4)
 num_epochs = scheduler.get_max_epochs()
 
 # Training

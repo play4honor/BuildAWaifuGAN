@@ -73,3 +73,14 @@ class MiniBatchSD(nn.Module):
         sd_expanded = mean_sd.expand(x.size(0), 1, x.size(2), x.size(3))
 
         return torch.cat((x, sd_expanded), dim = 1)
+
+class WeirdoNorm(nn.Module):
+    """
+    This is the weird local response normalization 
+    """
+     
+    def __init__(self):
+         super(WeirdoNorm, self).__init__()
+
+    def forward(self, x, epsilon=1e-8):
+        return x * (((x**2).mean(dim=1, keepdim=True) + epsilon).rsqrt())

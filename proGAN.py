@@ -33,6 +33,7 @@ class ProGen(nn.Module):
         self.alpha = 0
 
         self.leakyReLU = nn.LeakyReLU(leakiness)
+        self.leakiness = leakiness
 
         # Initialize upsampler
         #self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
@@ -47,8 +48,10 @@ class ProGen(nn.Module):
         # Initial layer
         self.layers.append(nn.ModuleList())
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
+        self.layers[0].append(nn.LeakyReLU(self.leakiness))
         self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
+        self.layers[0].append(nn.LeakyReLU(self.leakiness))
         self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
 
         # Last Convolution -> RGB
@@ -66,8 +69,10 @@ class ProGen(nn.Module):
 
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
+        self.layers[-1].append(nn.LeakyReLU(self.leakiness))
         self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
+        self.layers[-1].append(nn.LeakyReLU(self.leakiness))
         self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         
         self.toRGB.append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
@@ -89,7 +94,7 @@ class ProGen(nn.Module):
                 x = self.upsampler(x)
 
             for m in layer:
-                x = self.leakyReLU(m(x))
+                x = m(x)
 
             if self.alpha > 0 and i == (len(self.layers) - 2):
                 y = self.toRGB[-2](x)
@@ -100,7 +105,7 @@ class ProGen(nn.Module):
         if self.alpha > 0:
             x = self.alpha * y + (1.0-self.alpha) * x
 
-        return x
+        return torch.sigmoid(x)
 
     def num_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -125,6 +130,7 @@ class ProDis(nn.Module):
         self.alpha = 0
 
         self.leakyReLU = nn.LeakyReLU(leakiness)
+        self.leakiness = leakiness
 
         # Initialize downsampler
         self.downsampler = nn.AvgPool2d(kernel_size=2)
@@ -158,8 +164,13 @@ class ProDis(nn.Module):
     def addLayer(self, newLayerDepth):
 
         self.layers.append(nn.ModuleList())
-        self.layers[-1].append(EqualizedConv2d(newLayerDepth, self.scales[-1], 3, padding=1))
-
+        self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
+        self.layers[-1].append(nn.LeakyReLU(self.leakiness))
+        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
+        self.layers[-1].append(nn.LeakyReLU(self.leakiness))
+        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        
         self.fromRGB.append(EqualizedConv2d(self.inputDepth, newLayerDepth, 1))
 
         self.scales.append(newLayerDepth)
@@ -180,7 +191,7 @@ class ProDis(nn.Module):
         for i, layer in enumerate(reversed(self.layers)):
             
             for m in layer: 
-                x = self.leakyReLU(m(x))
+                x = m(x)
 
             if i < (len(self.layers) - 1):
                 x = self.downsampler(x)

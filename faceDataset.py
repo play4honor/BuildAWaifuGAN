@@ -44,9 +44,9 @@ class FaceDataset(Dataset):
         p = self.fileList[idx]
         p = torchvision.io.read_image(p, self.readMode)
         if self.downsampler is not None:
-            return self.downsampler(p.type(torch.FloatTensor))
+            return self.downsampler(p.type(torch.FloatTensor)) / 255.0
         else:
-            return p.type(torch.FloatTensor)
+            return p.type(torch.FloatTensor) / 255.0
 
     def __len__(self):
 
@@ -73,7 +73,7 @@ class FaceDataset(Dataset):
 
 if __name__ == '__main__':
 
-    a = FaceDataset("./sample_data", greyscale=True)
+    a = FaceDataset("./img/input", greyscale=False)
 
     faceLoader = DataLoader(a, batch_size=16, shuffle=True)
 
@@ -83,23 +83,23 @@ if __name__ == '__main__':
 
     print(a[0])
 
-    torchvision.utils.save_image(a[0], "single_image.png", normalize=True)
+    #torchvision.utils.save_image(a[0], "single_image.png", normalize=True)
 
     print(b.shape)
     print(b.dtype)
 
-    torchvision.utils.save_image(b, "full_scale.png", normalize=True)
+    #torchvision.utils.save_image(b, "full_scale.png", normalize=True)
 
     faceLoader.dataset.setScale(128)
 
     b = next(iter(faceLoader))
 
     grid = torchvision.utils.make_grid(b, nrow=4)
-    torchvision.utils.save_image(grid, "half_scale.png", normalize=True)
+    #torchvision.utils.save_image(grid, "half_scale.png", normalize=True)
 
     faceLoader.dataset.setScale(64)
 
     b = next(iter(faceLoader))
 
     grid = torchvision.utils.make_grid(b, nrow=4)
-    torchvision.utils.save_image(grid, "quarter_scale.png", normalize=True)
+    #torchvision.utils.save_image(grid, "quarter_scale.png", normalize=True)

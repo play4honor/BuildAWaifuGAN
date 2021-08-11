@@ -15,7 +15,7 @@ print(device)
 use_greyscale = True
 channels = 1 if use_greyscale else 3
 
-faceDS = FaceDataset("./data", greyscale=False)
+faceDS = FaceDataset("./img/input", greyscale=use_greyscale)
 
 trainLoader = DataLoader(faceDS, batch_size=32, shuffle=True)
 
@@ -35,8 +35,8 @@ disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)
 
-scheduler = ProGANScheduler(5, len(trainLoader))
-num_epochs = 15
+scheduler = ProGANScheduler(25, len(trainLoader))
+num_epochs = 175
 
 # Training
 

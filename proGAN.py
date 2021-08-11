@@ -32,7 +32,6 @@ class ProGen(nn.Module):
         # Initialize the blending parameter
         self.alpha = 0
 
-        self.leakyReLU = nn.LeakyReLU(leakiness)
         self.leakiness = leakiness
 
         # Initialize upsampler
@@ -49,15 +48,15 @@ class ProGen(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
         self.layers[0].append(nn.LeakyReLU(self.leakiness))
-        self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
+        # self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
         self.layers[0].append(nn.LeakyReLU(self.leakiness))
-        self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
+        # self.layers[0].append(nn.BatchNorm2d(firstLayerDepth))
 
         # Last Convolution -> RGB
         self.toRGB = nn.ModuleList()
-        self.toRGB.append(EqualizedConv2d(firstLayerDepth, self.outputDepth, 1))
-
+        self.toRGB.append(nn.ModuleList())
+        self.toRGB[0].append(EqualizedConv2d(firstLayerDepth, self.outputDepth, 1))
         
     def setAlpha(self, alpha: float):
 
@@ -70,20 +69,20 @@ class ProGen(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         
-        self.toRGB.append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
-
+        self.toRGB.append(nn.ModuleList())
+        self.toRGB[-1].append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
         self.scales.append(newLayerDepth)
 
     
     def forward(self, x):
         
         # Transform latent vector into 4x4
-        x = self.leakyReLU(self.fromLatent(x))
+        x = F.leaky_relu(self.fromLatent(x), self.leakiness)
         
         # batch x channels x 4 x 4
         x = x.view(x.shape[0], -1, 4, 4)
@@ -97,10 +96,13 @@ class ProGen(nn.Module):
                 x = m(x)
 
             if self.alpha > 0 and i == (len(self.layers) - 2):
-                y = self.toRGB[-2](x)
+                y = x.clone()
+                for m in self.toRGB[-2]:
+                    y = m(y)
                 y = self.upsampler(y)
 
-        x = self.toRGB[-1](x)
+        for m in self.toRGB[-1]:
+            x = m(x)
 
         if self.alpha > 0:
             x = self.alpha * y + (1.0-self.alpha) * x
@@ -129,7 +131,6 @@ class ProDis(nn.Module):
         # Initialize the blending parameter
         self.alpha = 0
 
-        self.leakyReLU = nn.LeakyReLU(leakiness)
         self.leakiness = leakiness
 
         # Initialize downsampler
@@ -145,14 +146,19 @@ class ProDis(nn.Module):
             self.layers[0].append(MiniBatchSD())
             firstLayerActualDepth += 1
         self.layers[0].append(EqualizedConv2d(firstLayerActualDepth, firstLayerDepth, 3, padding=1))
-        
+        self.layers[0].append(nn.LeakyReLU(self.leakiness))
+        self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
+        self.layers[0].append(nn.LeakyReLU(self.leakiness))
+
         # Output Layer
         self.outputLayer = EqualizedLinear(firstLayerDepth*4*4, firstLayerDepth)
         self.finalLayer = EqualizedLinear(firstLayerDepth, 1)
 
         # RGB -> layer depth
         self.fromRGB = nn.ModuleList()
-        self.fromRGB.append(EqualizedConv2d(self.inputDepth, firstLayerDepth, 1))
+        self.fromRGB.append(nn.ModuleList())
+        
+        self.fromRGB[0].append(EqualizedConv2d(self.inputDepth, firstLayerDepth, 1))
 
         
     def setAlpha(self, alpha: float):
@@ -166,12 +172,13 @@ class ProDis(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        # self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
         
-        self.fromRGB.append(EqualizedConv2d(self.inputDepth, newLayerDepth, 1))
+        self.fromRGB.append(nn.ModuleList())
+        self.fromRGB[-1].append(EqualizedConv2d(self.inputDepth, newLayerDepth, 1))
 
         self.scales.append(newLayerDepth)
     
@@ -181,10 +188,13 @@ class ProDis(nn.Module):
         # Downscaled Image
         if self.alpha > 0 and len(self.layers) > 1:
             y = self.downsampler(x)
-            y = self.leakyReLU(self.fromRGB[-2](y))
+            # Apply the fromRGB conv layer and the leaky relu.
+            for m in self.fromRGB[-2]:
+                y = m(y)
 
         # Transform RBG image to latest layer channels
-        x = self.leakyReLU(self.fromRGB[-1](x))
+        for m in self.fromRGB[-1]:
+            x = m(x)
         
         # x is currently 2x the size of y
 
@@ -200,7 +210,7 @@ class ProDis(nn.Module):
                 x = self.alpha * y + (1.0-self.alpha) * x
 
         x = x.view(x.shape[0], -1)
-        x = self.leakyReLU(self.outputLayer(x))
+        x = F.leaky_relu(self.outputLayer(x), self.leakiness)
         x = self.finalLayer(x)
 
         return x
@@ -212,10 +222,11 @@ class ProGANScheduler():
 
     """Controls scheduling for progressive GAN alpha (layer mixing) and scaling
     up, in terms of epochs."""
-    def __init__(self, epochs_per_step, num_batches):
+    def __init__(self, epochs_per_step, num_batches, scale_steps: int = 4):
         assert epochs_per_step > 1
         self.epochs_per_step = epochs_per_step
         self.num_batches = num_batches
+        self.scale_steps = scale_steps
 
     def get_alpha(self, epoch, batch):
         if int(epoch / self.epochs_per_step) % 2 == 0:
@@ -225,6 +236,9 @@ class ProGANScheduler():
     
     def decide_scale(self, epoch):
         return (epoch % (2 * self.epochs_per_step) == self.epochs_per_step) & (epoch != 0)
+
+    def get_max_epochs(self):
+        return 2 * self.epochs_per_step * self.scale_steps + self.epochs_per_step
 
 if __name__ == '__main__':
 

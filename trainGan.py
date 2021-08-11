@@ -12,10 +12,10 @@ import torchvision
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(device)
 
-use_greyscale = True
+use_greyscale = False
 channels = 1 if use_greyscale else 3
 
-faceDS = FaceDataset("./img/input", greyscale=use_greyscale)
+faceDS = FaceDataset("./sample_data", greyscale=use_greyscale)
 
 trainLoader = DataLoader(faceDS, batch_size=32, shuffle=True)
 
@@ -35,8 +35,8 @@ disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)
 
-scheduler = ProGANScheduler(25, len(trainLoader))
-num_epochs = 175
+scheduler = ProGANScheduler(10, len(trainLoader), scale_steps=4)
+num_epochs = scheduler.get_max_epochs()
 
 # Training
 

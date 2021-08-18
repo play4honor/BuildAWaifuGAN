@@ -14,7 +14,7 @@ print(device)
 
 use_greyscale = False
 channels = 1 if use_greyscale else 3
-data_size = 50000
+data_size = 3000
 
 faceDS = FaceDataset("./img/input", greyscale=use_greyscale, size=data_size)
 
@@ -63,6 +63,11 @@ if __name__ == "__main__":
             gan.discriminator.addLayer(196)
             gan.generator.to(device)
             gan.discriminator.to(device)
+
+            gan.setOptimizers(
+                gen_optimizer=AdamW(filter(lambda p: p.requires_grad, gan.generator.parameters())),
+                dis_optimizer=AdamW(filter(lambda p: p.requires_grad, gan.discriminator.parameters()))
+            )
             
         tbStep = 0
 

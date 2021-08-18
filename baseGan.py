@@ -57,6 +57,13 @@ class BaseGAN():
         self.dis_optimizer = optimizer
         self.dis_optimizer.zero_grad() 
 
+    def setOptimizers(self, gen_optimizer, dis_optimizer):
+        self.gen_optimizer = gen_optimizer
+        self.dis_optimizer = dis_optimizer
+
+        self.gen_optimizer.zero_grad()
+        self.dis_optimizer.zero_grad()
+
     def setLoss(self, lossClass):
         self.config.calculateLoss = lossClass
 

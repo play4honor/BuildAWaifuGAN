@@ -1,18 +1,17 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD, WeirdoNorm
+from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD
 
 class Interpolator2x(nn.Module):
     def __init__(self):
 
         super(Interpolator2x, self).__init__()
         self.scale = 2
-        self.mode = 'nearest'
+        self.mode = 'bilinear'
         
     def forward(self, x):
-        return F.interpolate(x, scale_factor=self.scale, mode=self.mode)
-
+        return F.interpolate(x, scale_factor=self.scale, mode=self.mode, align_corners=True)
 
 class ProGen(nn.Module):
 
@@ -105,6 +104,7 @@ class ProGen(nn.Module):
             x = m(x)
 
         if self.alpha > 0:
+            # x = y
             x = self.alpha * y + (1.0-self.alpha) * x
 
         return torch.sigmoid(x)
@@ -159,6 +159,7 @@ class ProDis(nn.Module):
         self.fromRGB.append(nn.ModuleList())
         
         self.fromRGB[0].append(EqualizedConv2d(self.inputDepth, firstLayerDepth, 1))
+        self.fromRGB[0].append(nn.LeakyReLU(self.leakiness))
 
         
     def setAlpha(self, alpha: float):
@@ -177,6 +178,7 @@ class ProDis(nn.Module):
         
         self.fromRGB.append(nn.ModuleList())
         self.fromRGB[-1].append(EqualizedConv2d(self.inputDepth, newLayerDepth, 1))
+        self.fromRGB[-1].append(nn.LeakyReLU(self.leakiness))
 
         self.scales.append(newLayerDepth)
     
@@ -205,6 +207,7 @@ class ProDis(nn.Module):
                 x = self.downsampler(x)
 
             if self.alpha > 0 and i == 0:
+                # x = y
                 x = self.alpha * y + (1.0-self.alpha) * x
 
         x = x.view(x.shape[0], -1)

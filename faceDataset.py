@@ -1,5 +1,4 @@
 import torch
-import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset, DataLoader
 import torchvision
 from torchvision.io import ImageReadMode
@@ -68,9 +67,7 @@ class FaceDataset(Dataset):
         Set the scale of the images
         """
         self.scale = scale
-        self.downsampler = torchvision.transforms.Resize(
-            (self.scale, self.scale), interpolation=TF.InterpolationMode.NEAREST
-        )
+        self.downsampler = torchvision.transforms.Resize((self.scale, self.scale))
 
     def view_image(self, idx):
         """

@@ -20,6 +20,8 @@ faceDS = FaceDataset("./img/input", greyscale=use_greyscale, size=data_size)
 
 trainLoader = DataLoader(faceDS, batch_size=32, shuffle=True)
 
+print(f"Batches: {len(trainLoader)}")
+
 # Set up GAN
 
 gan = BaseGAN(128, 0.001, device)
@@ -38,6 +40,8 @@ gan.setDis(discriminator, disOptim)
 
 scheduler = ProGANScheduler(3, len(trainLoader), scale_steps=4)
 num_epochs = scheduler.get_max_epochs()
+
+print(gan.discriminator.num_params())
 
 # Training
 
@@ -63,6 +67,8 @@ if __name__ == "__main__":
             gan.discriminator.addLayer(128)
             gan.generator.to(device)
             gan.discriminator.to(device)
+
+            print(gan.discriminator.num_params())
 
             gan.setOptimizers(
                 gen_optimizer=AdamW(filter(lambda p: p.requires_grad, gan.generator.parameters())),

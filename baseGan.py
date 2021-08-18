@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+import math
+
 class WassersteinLoss():
 
     def __init__(self):
@@ -94,6 +96,14 @@ class BaseGAN():
 
         fakeLoss.backward()
         self.gen_optimizer.step()
+
+        # for p in self.generator.parameters():
+
+        #     if (p.grad.data.abs() == math.inf).any():
+        #         print(f"Found inf in grads for {p.name}")
+
+        #     if (p.grad.data != p.grad.data).any():
+        #         print(f"Found nan in grads for {p.name}")
 
         return fakeLoss.item(), fakeOut
 

@@ -26,12 +26,12 @@ gan = BaseGAN(128, 0.001, device)
 
 gan.setLoss(WassersteinLoss())
 
-generator = ProGen(latentDim=128, firstLayerDepth=196, outputDepth=channels)
+generator = ProGen(latentDim=128, firstLayerDepth=128, outputDepth=channels)
 genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()))
 
 gan.setGen(generator, genOptim)
 
-discriminator = ProDis(firstLayerDepth=196, inputDepth=channels)
+discriminator = ProDis(firstLayerDepth=128, inputDepth=channels)
 disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)
@@ -59,8 +59,8 @@ if __name__ == "__main__":
             curr_scale = trainLoader.dataset.getScale()
             trainLoader.dataset.setScale(curr_scale*2)
             # TKTK: Add a method to base_gan to do this whole operation
-            gan.generator.addLayer(196)
-            gan.discriminator.addLayer(196)
+            gan.generator.addLayer(128)
+            gan.discriminator.addLayer(128)
             gan.generator.to(device)
             gan.discriminator.to(device)
 

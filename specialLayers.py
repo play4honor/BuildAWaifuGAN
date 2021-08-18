@@ -9,11 +9,14 @@ class EqualizedLayer(nn.Module):
     because ????
     """
     
-    def __init__(self, module, equalized=True):
+    def __init__(self, module, equalized=True, init_zero_bias=True):
         super(EqualizedLayer, self).__init__()
 
         self.module = module
         self.equalized = equalized
+
+        if init_zero_bias:
+            self.module.bias.data.fill_(0)
         
         if self.equalized:
             self.module.weight.data.normal_(0, 1)

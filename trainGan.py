@@ -14,28 +14,29 @@ print(device)
 
 use_greyscale = False
 channels = 1 if use_greyscale else 3
+data_size = 50000
 
-faceDS = FaceDataset("./sample_data", greyscale=use_greyscale)
+faceDS = FaceDataset("./img/input", greyscale=use_greyscale, size=data_size)
 
 trainLoader = DataLoader(faceDS, batch_size=32, shuffle=True)
 
 # Set up GAN
 
-gan = BaseGAN(128, 0.01, device)
+gan = BaseGAN(128, 0.001, device)
 
 gan.setLoss(WassersteinLoss())
 
-generator = ProGen(latentDim=128, firstLayerDepth=128, outputDepth=channels)
+generator = ProGen(latentDim=128, firstLayerDepth=196, outputDepth=channels)
 genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()))
 
 gan.setGen(generator, genOptim)
 
-discriminator = ProDis(firstLayerDepth=128, inputDepth=channels)
+discriminator = ProDis(firstLayerDepth=196, inputDepth=channels)
 disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)
 
-scheduler = ProGANScheduler(5, len(trainLoader), scale_steps=4)
+scheduler = ProGANScheduler(3, len(trainLoader), scale_steps=4)
 num_epochs = scheduler.get_max_epochs()
 
 # Training
@@ -58,8 +59,8 @@ if __name__ == "__main__":
             curr_scale = trainLoader.dataset.getScale()
             trainLoader.dataset.setScale(curr_scale*2)
             # TKTK: Add a method to base_gan to do this whole operation
-            gan.generator.addLayer(128)
-            gan.discriminator.addLayer(128)
+            gan.generator.addLayer(196)
+            gan.discriminator.addLayer(196)
             gan.generator.to(device)
             gan.discriminator.to(device)
             

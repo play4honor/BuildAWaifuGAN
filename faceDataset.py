@@ -1,4 +1,5 @@
 import torch
+import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset, DataLoader
 import torchvision
 from torchvision.io import ImageReadMode
@@ -9,7 +10,7 @@ class FaceDataset(Dataset):
     
     IMG_EXT = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp')
 
-    def __init__(self, path, greyscale=False, ext=".jpg"):
+    def __init__(self, path, greyscale=False, ext=".jpg", size=None):
         """
         This is a docstring
         """
@@ -25,6 +26,10 @@ class FaceDataset(Dataset):
             raise ValueError(f"{ext} is not a valid image extension")
 
         self.fileList = self._parse_path(self.path)
+
+        # Optionally limit the size of the dataset
+        if size is not None:
+            self.fileList = self.fileList[:size]
         
     def _parse_path(self, path):
 
@@ -63,7 +68,9 @@ class FaceDataset(Dataset):
         Set the scale of the images
         """
         self.scale = scale
-        self.downsampler = torchvision.transforms.Resize((self.scale, self.scale))
+        self.downsampler = torchvision.transforms.Resize(
+            (self.scale, self.scale), interpolation=TF.InterpolationMode.NEAREST
+        )
 
     def view_image(self, idx):
         """

@@ -8,10 +8,10 @@ class Interpolator2x(nn.Module):
 
         super(Interpolator2x, self).__init__()
         self.scale = 2
-        self.mode = 'bilinear'
+        self.mode = 'nearest'
         
     def forward(self, x):
-        return F.interpolate(x, scale_factor=self.scale, mode=self.mode, align_corners=False)
+        return F.interpolate(x, scale_factor=self.scale, mode=self.mode)
 
 
 class ProGen(nn.Module):

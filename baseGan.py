@@ -161,7 +161,7 @@ class BaseGAN():
             gradients = gradients[0].view(batchSize, -1)
             gradients = (gradients * gradients).sum(dim=1).sqrt()
             # May want to consider scaling this by (1-alpha)
-            gradientPenalty = ((gradients - 1) ** 2).mean() * 10
+            gradientPenalty = ((gradients - 1) ** 2).mean() * 1
 
             loss_dict["non_grad_loss"] = totalLoss.clone().item()
             loss_dict["grad_loss"] = gradientPenalty.item()
@@ -177,7 +177,7 @@ class BaseGAN():
         totalLoss.backward()
         self.dis_optimizer.step()
 
-        return loss_dict
+        return loss_dict, dis_activation
 
     def _hasGenAndDis(self):
         return self.generator is not None and self.discriminator is not None

@@ -1,5 +1,6 @@
 from baseGan import WassersteinLoss, ModelConfig, BaseGAN
 from proGAN import ProDis, ProGen, ProGANScheduler
+from fakeProGAN import FakeProDis
 from faceDataset import FaceDataset
 
 import torch
@@ -14,7 +15,7 @@ print(device)
 
 use_greyscale = False
 channels = 1 if use_greyscale else 3
-data_size = 10000
+data_size = 5000
 
 faceDS = FaceDataset("./img/input", greyscale=use_greyscale, size=data_size)
 trainLoader = DataLoader(faceDS, batch_size=32, shuffle=True)
@@ -31,15 +32,13 @@ genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()))
 
 gan.setGen(generator, genOptim)
 
-discriminator = ProDis(firstLayerDepth=128, inputDepth=channels)
+discriminator = FakeProDis(firstLayerDepth=128, inputDepth=channels, minibatchSD=False)
 disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)
 
 scheduler = ProGANScheduler(5, len(trainLoader), scale_steps=4)
 num_epochs = scheduler.get_max_epochs()
-
-print(gan.discriminator.num_params())
 
 # Training
 
@@ -62,12 +61,12 @@ if __name__ == "__main__":
             trainLoader.dataset.setScale(curr_scale*2)
             # TKTK: Add a method to base_gan to do this whole operation
             new_gen_layers = gan.generator.addLayer(128)
-            new_dis_layers = gan.discriminator.addLayer(128)
+            #new_dis_layers = gan.discriminator.addLayer(128)
             gan.generator.to(device)
             gan.discriminator.to(device)
 
             gan.gen_optimizer.add_param_group(new_gen_layers)
-            gan.dis_optimizer.add_param_group(new_dis_layers)
+            #gan.dis_optimizer.add_param_group(new_dis_layers)
 
 
             
@@ -80,7 +79,7 @@ if __name__ == "__main__":
             gan.generator.setAlpha(alpha)
             gan.discriminator.setAlpha(alpha)
 
-            stepLosses = gan.trainDis(x, alpha)
+            stepLosses, dis_act = gan.trainDis(x, alpha)
 
             stepLossGen, outputs = gan.trainGen(32)
 
@@ -93,6 +92,8 @@ if __name__ == "__main__":
                 writer.add_image("output", grid, j)
                 writer.add_scalar("loss_discriminator", stepLosses["total_loss"], j)
                 writer.add_scalar("loss_generator", stepLossGen, j)
+                writer.add_scalar("input_mean", dis_act[0].item(), j)
+                writer.add_scalar("input_std", dis_act[1].item(), j)
                 #writer.add_scalar("grad_penalty", stepLosses["grad_loss"], j)
                 #writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], j)
                 #writer.add_scalar("real_dis_loss", stepLosses["dis_real"], j)

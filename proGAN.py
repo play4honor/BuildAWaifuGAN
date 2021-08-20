@@ -195,7 +195,6 @@ class ProDis(nn.Module):
             )
         }
     
-    
     def forward(self, x):
         
         # Downscaled Image
@@ -224,10 +223,9 @@ class ProDis(nn.Module):
 
         x = x.view(x.shape[0], -1)
         x = F.leaky_relu(self.outputLayer(x), self.leakiness)
-        pen_activations = x.mean().clone()
         x = self.finalLayer(x)
 
-        return x, pen_activations
+        return x, 0
 
     def num_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)

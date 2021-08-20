@@ -93,9 +93,9 @@ if __name__ == "__main__":
                 writer.add_image("output", grid, j)
                 writer.add_scalar("loss_discriminator", stepLosses["total_loss"], j)
                 writer.add_scalar("loss_generator", stepLossGen, j)
-                writer.add_scalar("grad_penalty", stepLosses["grad_loss"], j)
-                writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], j)
-                writer.add_scalar("real_dis_loss", stepLosses["dis_real"], j)
-                writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], j)
+                #writer.add_scalar("grad_penalty", stepLosses["grad_loss"], j)
+                #writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], j)
+                #writer.add_scalar("real_dis_loss", stepLosses["dis_real"], j)
+                #writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], j)
                 tbStep += 1
                 j += 1

@@ -77,6 +77,13 @@ class ProGen(nn.Module):
         self.toRGB[-1].append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
         self.scales.append(newLayerDepth)
 
+        return {
+            "params": (
+                [p for p in self.layers[-1].parameters() if p.requires_grad] 
+                + [p for p in self.toRGB[-1].parameters() if p.requires_grad]
+            )
+        }
+
     
     def forward(self, x):
         
@@ -104,7 +111,6 @@ class ProGen(nn.Module):
             x = m(x)
 
         if self.alpha > 0:
-            # x = y
             x = self.alpha * y + (1.0-self.alpha) * x
 
         return torch.sigmoid(x)
@@ -181,6 +187,13 @@ class ProDis(nn.Module):
         self.fromRGB[-1].append(nn.LeakyReLU(self.leakiness))
 
         self.scales.append(newLayerDepth)
+
+        return {
+            "params": (
+                [p for p in self.layers[-1].parameters() if p.requires_grad] 
+                + [p for p in self.fromRGB[-1].parameters() if p.requires_grad]
+            )
+        }
     
     
     def forward(self, x):
@@ -207,14 +220,14 @@ class ProDis(nn.Module):
                 x = self.downsampler(x)
 
             if self.alpha > 0 and i == 0:
-                # x = y
                 x = self.alpha * y + (1.0-self.alpha) * x
 
         x = x.view(x.shape[0], -1)
         x = F.leaky_relu(self.outputLayer(x), self.leakiness)
+        pen_activations = x.mean().clone()
         x = self.finalLayer(x)
 
-        return x
+        return x, pen_activations
 
     def num_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)

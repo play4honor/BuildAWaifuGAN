@@ -89,7 +89,7 @@ class BaseGAN():
         inputNoise = self._createNoise(batchSize).to(self.device)
 
         fakeOut = self.generator(inputNoise)
-        fakePred = self.discriminator(fakeOut)
+        fakePred, _ = self.discriminator(fakeOut)
         fakeLoss = -self.calculateLoss(fakePred)
 
         # TKTK maybe there's some gradient penalty shit here?
@@ -108,24 +108,29 @@ class BaseGAN():
         return fakeLoss.item(), fakeOut
 
 
-    def trainDis(self, x):
+    def trainDis(self, x, alpha):
         if not self._hasGenAndDis():
             raise AttributeError("Training requires both a discriminator and generator to be set.")
         if not self._hasOptimizers():
             raise AttributeError("Training requires optimizers to be set.")
+
+        loss_dict = dict()
         
         self.dis_optimizer.zero_grad()
         self.gen_optimizer.zero_grad()
         
         # Real
-        realPred = self.discriminator(x)
+        realPred, dis_activation = self.discriminator(x)
         realLoss = -self.calculateLoss(realPred)
         
         # Fake
         inputNoise = self._createNoise(x.size()[0]).to(self.device)
-        fakeX = self.generator(inputNoise)
-        fakePred = self.discriminator(fakeX)
+        fakeX = self.generator(inputNoise).detach()
+        fakePred, _ = self.discriminator(fakeX)
         fakeLoss = self.calculateLoss(fakePred)
+
+        loss_dict["dis_real"] = realLoss
+        loss_dict["dis_fake"] = fakeLoss
 
         totalLoss = realLoss + fakeLoss
 
@@ -141,10 +146,10 @@ class BaseGAN():
             epsilon = epsilon.to(self.device)
 
             mixedObs = epsilon * x + (1-epsilon) * fakeX
-            #mixedObs.requires_grad = True
+            mixedObs.requires_grad = True
 
-
-            mixedPred = self.discriminator(mixedObs).sum()
+            mixedPreds, _ = self.discriminator(mixedObs)
+            mixedPred = mixedPreds.sum()
 
             gradients = torch.autograd.grad(
                 outputs=mixedPred,
@@ -155,14 +160,24 @@ class BaseGAN():
 
             gradients = gradients[0].view(batchSize, -1)
             gradients = (gradients * gradients).sum(dim=1).sqrt()
+            # May want to consider scaling this by (1-alpha)
             gradientPenalty = ((gradients - 1) ** 2).mean() * 10
 
+            loss_dict["non_grad_loss"] = totalLoss.clone().item()
+            loss_dict["grad_loss"] = gradientPenalty.item()
             totalLoss += gradientPenalty
+            
+
+        else:
+            loss_dict["non_grad_loss"] = totalLoss.item()
+            loss_dict["grad_loss"] = 0
+
+        loss_dict["total_loss"] = totalLoss.item()
 
         totalLoss.backward()
         self.dis_optimizer.step()
 
-        return totalLoss.item()
+        return loss_dict
 
     def _hasGenAndDis(self):
         return self.generator is not None and self.discriminator is not None

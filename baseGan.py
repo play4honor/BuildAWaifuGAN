@@ -108,7 +108,7 @@ class BaseGAN():
         return fakeLoss.item(), fakeOut
 
 
-    def trainDis(self, x, alpha):
+    def trainDis(self, x, alpha=None):
         if not self._hasGenAndDis():
             raise AttributeError("Training requires both a discriminator and generator to be set.")
         if not self._hasOptimizers():
@@ -158,10 +158,12 @@ class BaseGAN():
                 retain_graph=True
             )
 
+            gradPenWeight = 10 if alpha is None else 10 * alpha
+
             gradients = gradients[0].view(batchSize, -1)
             gradients = (gradients * gradients).sum(dim=1).sqrt()
             # May want to consider scaling this by (1-alpha)
-            gradientPenalty = ((gradients - 1) ** 2).mean() * 10
+            gradientPenalty = ((gradients - 1) ** 2).mean() * gradPenWeight
 
             loss_dict["non_grad_loss"] = totalLoss.clone().item()
             loss_dict["grad_loss"] = gradientPenalty.item()

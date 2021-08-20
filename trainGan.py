@@ -14,25 +14,29 @@ print(device)
 
 use_greyscale = False
 channels = 1 if use_greyscale else 3
-data_size = 10000
+data_size = 1000
+
+LATENT_SIZE = 128
+LAYER_SIZE = 128
+BATCH_SIZE = 16
 
 faceDS = FaceDataset("./img/input", greyscale=use_greyscale, size=data_size)
-trainLoader = DataLoader(faceDS, batch_size=32, shuffle=True)
+trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True)
 print(f"Batches: {len(trainLoader)}")
 
 # Set up GAN
 
-gan = BaseGAN(128, 0.001, device)
+gan = BaseGAN(LATENT_SIZE, 0.001, device)
 
 gan.setLoss(WassersteinLoss())
 
-generator = ProGen(latentDim=128, firstLayerDepth=128, outputDepth=channels)
-genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()))
+generator = ProGen(latentDim=LATENT_SIZE, firstLayerDepth=LAYER_SIZE, outputDepth=channels)
+genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()), lr = 0.001)
 
 gan.setGen(generator, genOptim)
 
-discriminator = ProDis(firstLayerDepth=128, inputDepth=channels)
-disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
+discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
+disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()), lr = 0.001)
 
 gan.setDis(discriminator, disOptim)
 
@@ -52,6 +56,8 @@ if __name__ == "__main__":
 
     j = 0
 
+    written_net = False
+
     for epoch in range(num_epochs):
         print(f"Starting epoch {epoch}...")
 
@@ -61,41 +67,45 @@ if __name__ == "__main__":
             curr_scale = trainLoader.dataset.getScale()
             trainLoader.dataset.setScale(curr_scale*2)
             # TKTK: Add a method to base_gan to do this whole operation
-            new_gen_layers = gan.generator.addLayer(128)
-            new_dis_layers = gan.discriminator.addLayer(128)
+            new_gen_layers = gan.generator.addLayer(LAYER_SIZE)
+            new_dis_layers = gan.discriminator.addLayer(LAYER_SIZE)
             gan.generator.to(device)
             gan.discriminator.to(device)
 
             gan.gen_optimizer.add_param_group(new_gen_layers)
             gan.dis_optimizer.add_param_group(new_dis_layers)
 
-
-            
         tbStep = 0
 
         for i, data in enumerate(trainLoader):
             x = data.to(device)
 
+            # Show the networks.
+            if not written_net and trainLoader.dataset.getScale() == 8:
+                writer.add_graph(gan.discriminator, x)
+                written_net_scale = True
+
             alpha = scheduler.get_alpha(epoch, i)
             gan.generator.setAlpha(alpha)
             gan.discriminator.setAlpha(alpha)
 
-            stepLosses = gan.trainDis(x, alpha)
+            stepLosses = gan.trainDis(x)
 
-            stepLossGen, outputs = gan.trainGen(32)
+            stepLossGen, outputs = gan.trainGen(BATCH_SIZE)
 
             #if i % 10 == 9:
             if True:
+                obs = (1+j) * BATCH_SIZE    
                 #j = tbStep + int(len(trainLoader) / 10) * epoch
                 grid = torchvision.utils.make_grid(x, nrow=4, normalize=True)
-                writer.add_image("input", grid, j)
+                writer.add_image("input", grid, obs)
                 grid = torchvision.utils.make_grid(outputs, nrow=4, normalize=True)
-                writer.add_image("output", grid, j)
-                writer.add_scalar("loss_discriminator", stepLosses["total_loss"], j)
-                writer.add_scalar("loss_generator", stepLossGen, j)
-                #writer.add_scalar("grad_penalty", stepLosses["grad_loss"], j)
-                #writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], j)
-                #writer.add_scalar("real_dis_loss", stepLosses["dis_real"], j)
-                #writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], j)
+                writer.add_image("output", grid, obs)
+                writer.add_scalar("loss_discriminator", stepLosses["total_loss"], obs)
+                writer.add_scalar("loss_generator", stepLossGen, obs)
+                #writer.add_scalar("grad_penalty", stepLosses["grad_loss"], obs)
+                #writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], obs)
+                #writer.add_scalar("real_dis_loss", stepLosses["dis_real"], obs)
+                #writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], obs)
                 tbStep += 1
                 j += 1

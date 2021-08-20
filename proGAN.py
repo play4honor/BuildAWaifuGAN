@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD
+from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD, WeirdoNorm
 
 class Interpolator2x(nn.Module):
     def __init__(self):
@@ -12,6 +12,16 @@ class Interpolator2x(nn.Module):
         
     def forward(self, x):
         return F.interpolate(x, scale_factor=self.scale, mode=self.mode, align_corners=True)
+
+def Upscale2d(x, factor=2):
+    assert isinstance(factor, int) and factor >= 1
+    if factor == 1:
+        return x
+    s = x.size()
+    x = x.view(-1, s[1], s[2], 1, s[3], 1)
+    x = x.expand(-1, s[1], s[2], factor, s[3], factor)
+    x = x.contiguous().view(-1, s[1], s[2] * factor, s[3] * factor)
+    return x
 
 class ProGen(nn.Module):
 
@@ -34,7 +44,7 @@ class ProGen(nn.Module):
         self.leakiness = leakiness
 
         # Initialize upsampler
-        #self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
+        # self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
         self.upsampler = Interpolator2x()
 
         # Latent to 4x4
@@ -151,6 +161,7 @@ class ProDis(nn.Module):
         if minibatchSD:
             self.layers[0].append(MiniBatchSD())
             firstLayerActualDepth += 1
+            self.layers[0].append(nn.LeakyReLU(self.leakiness))
         self.layers[0].append(EqualizedConv2d(firstLayerActualDepth, firstLayerDepth, 3, padding=1))
         self.layers[0].append(nn.LeakyReLU(self.leakiness))
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
@@ -225,7 +236,7 @@ class ProDis(nn.Module):
         x = F.leaky_relu(self.outputLayer(x), self.leakiness)
         x = self.finalLayer(x)
 
-        return x, 0
+        return x, torch.Tensor([0])
 
     def num_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)

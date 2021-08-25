@@ -18,6 +18,7 @@ class FaceDataset(Dataset):
         self.ext = ext
         self.path = path
         self.downsampler = None
+        self.alpha = 0
 
         self.readMode = ImageReadMode.GRAY if greyscale else ImageReadMode.UNCHANGED
 
@@ -47,8 +48,20 @@ class FaceDataset(Dataset):
         
         p = self.fileList[idx]
         p = torchvision.io.read_image(p, self.readMode)
+
         if self.downsampler is not None:
-            return self.downsampler(p.type(torch.FloatTensor)) / 255.0
+
+            p = self.downsampler(p.type(torch.FloatTensor)) / 255.0
+
+            if self.alpha > 0:
+                s = p.shape
+                y = p.reshape((s[0], s[1]//2, 2, s[2]//2, 2))
+                y = torch.mean(y, dim=[2, 4], keepdim=True)
+                y = torch.tile(y, (1, 1, 2, 1, 2))
+                y = y.reshape(s)
+                p = y * self.alpha + p * (1.0 - self.alpha)
+
+            return p
         else:
             return p.type(torch.FloatTensor) / 255.0
 
@@ -69,11 +82,11 @@ class FaceDataset(Dataset):
         self.scale = scale
         self.downsampler = torchvision.transforms.Resize((self.scale, self.scale))
 
-    def view_image(self, idx):
+    def setAlpha(self, alpha):
         """
-        View the image at the given index
+        Set the alpha value for mixing.
         """
-        pass
+        self.alpha = alpha
 
 if __name__ == '__main__':
 

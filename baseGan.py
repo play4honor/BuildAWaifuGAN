@@ -158,7 +158,7 @@ class BaseGAN():
                 retain_graph=True
             )
 
-            gradPenWeight = 10 if alpha is None else 10 * alpha
+            gradPenWeight = 1 if alpha is None else 10 * alpha
 
             gradients = gradients[0].view(batchSize, -1)
             gradients = (gradients * gradients).sum(dim=1).sqrt()

@@ -44,8 +44,8 @@ class ProGen(nn.Module):
         self.leakiness = leakiness
 
         # Initialize upsampler
-        # self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
-        self.upsampler = Interpolator2x()
+        self.upsampler = Upscale2d
+        # self.upsampler = Interpolator2x()
 
         # Latent to 4x4
         self.fromLatent = EqualizedLinear(latentDim, 4*4*firstLayerDepth)
@@ -161,7 +161,6 @@ class ProDis(nn.Module):
         if minibatchSD:
             self.layers[0].append(MiniBatchSD())
             firstLayerActualDepth += 1
-            self.layers[0].append(nn.LeakyReLU(self.leakiness))
         self.layers[0].append(EqualizedConv2d(firstLayerActualDepth, firstLayerDepth, 3, padding=1))
         self.layers[0].append(nn.LeakyReLU(self.leakiness))
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))

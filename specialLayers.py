@@ -66,16 +66,26 @@ class MiniBatchSD(nn.Module):
     in the minibatch
     """
 
-    def __init__(self):
+    def __init__(self, subGroupSize=4):
         super(MiniBatchSD, self).__init__()
+        self.subGroupSize = subGroupSize
 
     def forward(self, x):
 
-        sd = torch.std(x, dim = 0)
-        mean_sd = torch.mean(sd)
-        sd_expanded = mean_sd.expand(x.size(0), 1, x.size(2), x.size(3))
+        size = x.shape
+        G = int(size[0] / self.subGroupSize)
+        if size[0] % self.subGroupSize != 0:
+            raise ValueError(f'Batch size must be divisible by {self.subGroupSize}')
+        
+        y = x.view(-1, self.subGroupSize, size[1], size[2], size[3])        # B x subgroup size x channels x h x w
+        y = torch.std(y, dim = 1)                                           # B x sd channels x sd h x sd w
+        y = y.view(G, -1)                                                   # n groups x sds of stuff
+        y = torch.mean(y, 1).view(G, 1)                                     # n groups x 1 (mean of sds of stuff)
+        y = y.expand(G, size[2]*size[3]).view((G, 1, 1, size[2], size[3]))  # n_groups x h*w -> n groups x 1 x 1 x h x w
+        y = y.expand(G, self.subGroupSize, -1, -1, -1)                      # n_groups x subgroup size x 1 x h x w
+        y = y.contiguous().view((-1, 1, size[2], size[3]))                  # B x 1 x h x w
 
-        return torch.cat((x, sd_expanded), dim = 1)
+        return torch.cat((x, y), dim = 1)
 
 class WeirdoNorm(nn.Module):
     """

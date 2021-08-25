@@ -8,17 +8,18 @@ from torch.optim import AdamW
 
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
+import torchvision.transforms.functional as TF
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(device)
 
 use_greyscale = False
 channels = 1 if use_greyscale else 3
-data_size = 1000
+data_size = 5000
 
 LATENT_SIZE = 128
 LAYER_SIZE = 128
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 
 faceDS = FaceDataset("./img/input", greyscale=use_greyscale, size=data_size)
 trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True)
@@ -56,12 +57,14 @@ if __name__ == "__main__":
 
     j = 0
 
-    written_net = False
+    write_batch = True
 
     for epoch in range(num_epochs):
         print(f"Starting epoch {epoch}...")
 
         if scheduler.decide_scale(epoch):
+
+            write_batch = True
 
             print(f"Increasing Scale to: {trainLoader.dataset.getScale()*2}")
             curr_scale = trainLoader.dataset.getScale()
@@ -80,12 +83,8 @@ if __name__ == "__main__":
         for i, data in enumerate(trainLoader):
             x = data.to(device)
 
-            # Show the networks.
-            if not written_net and trainLoader.dataset.getScale() == 8:
-                writer.add_graph(gan.discriminator, x)
-                written_net_scale = True
-
             alpha = scheduler.get_alpha(epoch, i)
+            trainLoader.dataset.setAlpha(alpha)
             gan.generator.setAlpha(alpha)
             gan.discriminator.setAlpha(alpha)
 
@@ -95,11 +94,30 @@ if __name__ == "__main__":
 
             #if i % 10 == 9:
             if True:
+
                 obs = (1+j) * BATCH_SIZE    
-                #j = tbStep + int(len(trainLoader) / 10) * epoch
+
                 grid = torchvision.utils.make_grid(x, nrow=4, normalize=True)
                 writer.add_image("input", grid, obs)
+
                 grid = torchvision.utils.make_grid(outputs, nrow=4, normalize=True)
+                if write_batch:
+
+                    scale = trainLoader.dataset.getScale()
+                    print([grid.shape[1] * (64 // scale), grid.shape[2] * (64 // scale)])
+                    resize_grid = TF.resize(
+                        grid, 
+                        [grid.shape[1] * (64 // scale), grid.shape[2] * (64 // scale)],
+                        TF.InterpolationMode.NEAREST
+                    )
+                    torchvision.utils.save_image(
+                        resize_grid,
+                        f"post_scale_output_{trainLoader.dataset.getScale()}.png",
+                        normalize=True
+                    )
+
+                write_batch = False
+
                 writer.add_image("output", grid, obs)
                 writer.add_scalar("loss_discriminator", stepLosses["total_loss"], obs)
                 writer.add_scalar("loss_generator", stepLossGen, obs)
@@ -107,5 +125,6 @@ if __name__ == "__main__":
                 #writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], obs)
                 #writer.add_scalar("real_dis_loss", stepLosses["dis_real"], obs)
                 #writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], obs)
+
                 tbStep += 1
                 j += 1

@@ -5,7 +5,7 @@ from faceDataset import FaceDataset
 
 import torch
 from torch.utils.data import Subset, DataLoader
-from torch.optim import AdamW
+from torch.optim import Adam
 
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
@@ -28,12 +28,12 @@ gan = BaseGAN(128, 0.001, device)
 gan.setLoss(WassersteinLoss())
 
 generator = ProGen(latentDim=128, firstLayerDepth=128, outputDepth=channels)
-genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()))
+genOptim = Adam(filter(lambda p: p.requires_grad, generator.parameters()))
 
 gan.setGen(generator, genOptim)
 
 discriminator = FakeProDis(firstLayerDepth=128, inputDepth=channels, minibatchSD=False)
-disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()))
+disOptim = Adam(filter(lambda p: p.requires_grad, discriminator.parameters()))
 
 gan.setDis(discriminator, disOptim)
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
             new_gen_layers = gan.generator.addLayer(128)
             #new_dis_layers = gan.discriminator.addLayer(128)
             gan.generator.to(device)
-            gan.discriminator.to(device)
+            #gan.discriminator.to(device)
 
             gan.gen_optimizer.add_param_group(new_gen_layers)
             #gan.dis_optimizer.add_param_group(new_dis_layers)
@@ -92,10 +92,10 @@ if __name__ == "__main__":
                 writer.add_image("output", grid, j)
                 writer.add_scalar("loss_discriminator", stepLosses["total_loss"], j)
                 writer.add_scalar("loss_generator", stepLossGen, j)
-                writer.add_scalar("input_mean", dis_act[0].item(), j)
-                writer.add_scalar("input_std", dis_act[1].item(), j)
-                #writer.add_scalar("grad_penalty", stepLosses["grad_loss"], j)
-                #writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], j)
+                #writer.add_scalar("input_mean", dis_act[0].item(), j)
+                #writer.add_scalar("input_std", dis_act[1].item(), j)
+                writer.add_scalar("grad_penalty", stepLosses["grad_loss"], j)
+                writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], j)
                 #writer.add_scalar("real_dis_loss", stepLosses["dis_real"], j)
                 #writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], j)
                 tbStep += 1

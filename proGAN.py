@@ -34,8 +34,8 @@ class ProGen(nn.Module):
         self.leakiness = leakiness
 
         # Initialize upsampler
-        #self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
-        self.upsampler = Interpolator2x()
+        self.upsampler = nn.Upsample(scale_factor=2, mode='nearest')
+        # self.upsampler = Interpolator2x()
 
         # Latent to 4x4
         self.fromLatent = EqualizedLinear(latentDim, 4*4*firstLayerDepth)

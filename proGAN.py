@@ -48,6 +48,7 @@ class ProGen(nn.Module):
         # self.upsampler = Interpolator2x()
 
         # Latent to 4x4
+        self.latentNorm = WeirdoNorm()
         self.fromLatent = EqualizedLinear(latentDim, 4*4*firstLayerDepth)
 
         self.layers = nn.ModuleList()
@@ -78,10 +79,10 @@ class ProGen(nn.Module):
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        self.layers[-1].append(WeirdoNorm())
         self.layers[-1].append(EqualizedConv2d(newLayerDepth, newLayerDepth, 3, padding=1))
         self.layers[-1].append(nn.LeakyReLU(self.leakiness))
-        self.layers[-1].append(nn.BatchNorm2d(newLayerDepth))
+        self.layers[-1].append(WeirdoNorm())
         
         self.toRGB.append(nn.ModuleList())
         self.toRGB[-1].append(EqualizedConv2d(newLayerDepth, self.outputDepth, 1))
@@ -98,7 +99,9 @@ class ProGen(nn.Module):
     def forward(self, x):
         
         # Transform latent vector into 4x4
+        x = self.latentNorm(x)
         x = F.leaky_relu(self.fromLatent(x), self.leakiness)
+        x = self.latentNorm(x)
         
         # batch x channels x 4 x 4
         x = x.view(x.shape[0], -1, 4, 4)

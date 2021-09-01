@@ -13,13 +13,13 @@ import torchvision.transforms.functional as TF
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(device)
 
-use_greyscale = False
+use_greyscale = True
 channels = 1 if use_greyscale else 3
-data_size = 5000
+data_size = 15000
 
-LATENT_SIZE = 128
+LATENT_SIZE = 192
 LAYER_SIZE = 128
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 
 faceDS = FaceDataset("./img/input", greyscale=use_greyscale, size=data_size)
 trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True)
@@ -29,19 +29,19 @@ print(f"Batches: {len(trainLoader)}")
 
 gan = BaseGAN(LATENT_SIZE, 0.001, device)
 
-gan.setLoss(WassersteinLoss())
+gan.setLoss(WassersteinLoss(sigmoid=False))
 
 generator = ProGen(latentDim=LATENT_SIZE, firstLayerDepth=LAYER_SIZE, outputDepth=channels)
-genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()), lr = 0.001)
+genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()), lr = 0.0001)
 
 gan.setGen(generator, genOptim)
 
 discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
-disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()), lr = 0.001)
+disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()), lr = 0.0001)
 
 gan.setDis(discriminator, disOptim)
 
-scheduler = ProGANScheduler(5, len(trainLoader), scale_steps=4)
+scheduler = ProGANScheduler(8, len(trainLoader), scale_steps=4)
 num_epochs = scheduler.get_max_epochs()
 
 print(gan.discriminator.num_params())

@@ -3,8 +3,8 @@ from proGAN import ProDis, ProGen, ProGANScheduler
 from faceDataset import FaceDataset
 
 import torch
-from torch.utils.data import Subset, DataLoader
-from torch.optim import AdamW
+from torch.utils.data import DataLoader
+import torch.optim as optim
 
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
@@ -14,19 +14,21 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(f"Using {device}")
 
 # Model Design
-USE_GREYSCALE = False
+USE_GREYSCALE = True
 LATENT_SIZE = 192
 LAYER_SIZE = 192
 
 # Training Details
 BATCH_SIZE = 32
 DATA_SIZE = 15000
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0001
 EPOCHS_PER_STEP = 8
 SCALE_STEPS = 4
 WRITE_EVERY_N = 50
+OPTIMIZER = "Adam"
 
 channels = 1 if USE_GREYSCALE else 3
+optimizer = getattr(optim, OPTIMIZER)
 
 faceDS = FaceDataset("./img/input", greyscale=USE_GREYSCALE, size=DATA_SIZE)
 trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True)
@@ -34,17 +36,17 @@ print(f"Batches: {len(trainLoader)}")
 
 # Set up GAN
 
-gan = BaseGAN(LATENT_SIZE, 0.001, device)
+gan = BaseGAN(LATENT_SIZE, LEARNING_RATE, device)
 
 gan.setLoss(WassersteinLoss(sigmoid=False))
 
 generator = ProGen(latentDim=LATENT_SIZE, firstLayerDepth=LAYER_SIZE, outputDepth=channels)
-genOptim = AdamW(filter(lambda p: p.requires_grad, generator.parameters()), lr=LEARNING_RATE)
+genOptim = optimizer(filter(lambda p: p.requires_grad, generator.parameters()), lr=LEARNING_RATE)
 
 gan.setGen(generator, genOptim)
 
 discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
-disOptim = AdamW(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=LEARNING_RATE)
+disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=LEARNING_RATE)
 
 gan.setDis(discriminator, disOptim)
 
@@ -82,8 +84,8 @@ if __name__ == "__main__":
             gan.generator.to(device)
             gan.discriminator.to(device)
 
-            gan.gen_optimizer.add_param_group(new_gen_layers)
-            gan.dis_optimizer.add_param_group(new_dis_layers)
+            gan.gen_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.generator.parameters()), lr=LEARNING_RATE)
+            gan.dis_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.discriminator.parameters()), lr=LEARNING_RATE)
 
 
         for i, data in enumerate(trainLoader):
@@ -102,10 +104,10 @@ if __name__ == "__main__":
 
                 obs = (1+j) * BATCH_SIZE    
 
-                grid = torchvision.utils.make_grid(x, nrow=4, normalize=True)
+                grid = torchvision.utils.make_grid(x, nrow=4, normalize=True, value_range=(0,1))
                 writer.add_image("input", grid, obs)
 
-                grid = torchvision.utils.make_grid(outputs, nrow=4, normalize=True)
+                grid = torchvision.utils.make_grid(outputs, nrow=4, normalize=True, value_range=(0,1))
                 if write_batch:
 
                     scale = trainLoader.dataset.getScale()
@@ -125,7 +127,7 @@ if __name__ == "__main__":
                 writer.add_image("output", grid, obs)
                 writer.add_scalar("loss_discriminator", stepLosses["total_loss"], obs)
                 writer.add_scalar("loss_generator", stepLossGen, obs)
-                writer.add_scalar("grad_penalty", stepLosses["grad_loss"], obs)
+                writer.add_scalar("zgrad_penalty", stepLosses["grad_loss"], obs)
                 writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], obs)
                 #writer.add_scalar("real_dis_loss", stepLosses["dis_real"], obs)
                 #writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], obs)

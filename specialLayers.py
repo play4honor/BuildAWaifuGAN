@@ -1,7 +1,66 @@
 import torch
 import torch.nn as nn
+import torchvision.transforms.functional as TF
+import torch.nn.functional as F
 import numpy as np
 import math
+
+class LatentMapping(nn.Module):
+    """
+    Submodule that handles the various linear layers from the latent input
+    to the transformed space W, for perceptual linearity.
+    """
+
+    def __init__(self, noise_size:int, n_layers:int, layer_size:int, leakiness: float=0.2):
+
+        super(LatentMapping, self).__init__()
+
+        self.leakiness = leakiness
+        self.noise_norm = WeirdoNorm()
+        self.layers = nn.ModuleList()
+
+        self.layers.append(EqualizedLinear(noise_size, layer_size))
+
+        for _ in range(n_layers-1):
+            self.layers.append(EqualizedLinear(layer_size, layer_size)) 
+
+    def forward(self, x):
+
+        x = self.noise_norm(x)
+
+        for l in self.layers:
+
+            x = l(x)
+            x = F.leaky_relu(x, self.leakiness)
+
+        return x
+
+
+class AdaIN(nn.Module):
+    """
+    AdaIN layer for use before each convolutional layer
+    """
+
+    def __init__(self, w_size: int, channels: int):
+
+        super(AdaIN, self).__init__()
+
+        self.w_size = w_size
+        self.channels = channels
+
+        self.layer = EqualizedLinear(w_size, channels * 2)
+        self.instance_norm = nn.InstanceNorm2d(channels)
+
+    def forward(self, w, x):
+
+        y = self.layer(w)
+        y = y.view(self.channels, 2)
+
+        # N x C x H x W
+        normed_x = self.instance_norm(x)
+
+        return (normed_x * (y[:, 0] + 1)) + y[:, 1]
+
 
 class EqualizedLayer(nn.Module):
     """
@@ -97,3 +156,9 @@ class WeirdoNorm(nn.Module):
 
     def forward(self, x, epsilon=1e-8):
         return x * (((x**2).mean(dim=1, keepdim=True) + epsilon).rsqrt())
+
+def scaleBilinear(x, factor):
+
+    new_size = [int(x.shape[-2] * factor), int(x.shape[-1] * factor)]
+
+    return TF.resize(x, size = new_size)

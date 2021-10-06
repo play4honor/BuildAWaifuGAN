@@ -55,7 +55,7 @@ class AdaIN(nn.Module):
 
         y = self.layerA(w)
         y = y.view(-1, self.channels, 2, 1, 1)
-        y = y.expand(-1, -1, -1, 4, 4)
+        y = y.expand(-1, -1, -1, x.shape[2], x.shape[3])
         y = y.permute(0, 1, 3, 4, 2)
 
         # N x C x H x W

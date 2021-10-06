@@ -118,7 +118,7 @@ class StyleGen(nn.Module):
             for m in layer:
                 x = m(w, x) if isinstance(m, AdaIN) else m(x)
 
-            if self.alpha > 0 and i == (len(self.layers) - 2):
+            if self.alpha > 0 and i == (len(self.synthesis_layers) - 2):
                 y = x.clone()
                 for m in self.toRGB[-2]:
                     y = m(y)

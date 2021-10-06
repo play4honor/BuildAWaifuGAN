@@ -73,7 +73,7 @@ if __name__ == "__main__":
     writer = SummaryWriter()
 
     # Set the real image data scale
-    trainLoader.dataset.setScale(4)
+    trainLoader.dataset.set_scale(4)
 
     j = 0
 
@@ -96,12 +96,12 @@ if __name__ == "__main__":
 
                 write_batch = True
 
-                print(f"Increasing Scale to: {trainLoader.dataset.getScale()*2}")
-                curr_scale = trainLoader.dataset.getScale()
-                trainLoader.dataset.setScale(curr_scale*2)
+                print(f"Increasing Scale to: {trainLoader.dataset.get_scale()*2}")
+                curr_scale = trainLoader.dataset.get_scale()
+                trainLoader.dataset.set_scale(curr_scale*2)
                 # TKTK: Add a method to base_gan to do this whole operation
                 new_gen_layers = gan.generator.add_layer()
-                new_dis_layers = gan.discriminator.addLayer(LAYER_SIZE)
+                new_dis_layers = gan.discriminator.add_layer(LAYER_SIZE)
                 gan.generator.to(device)
                 gan.discriminator.to(device)
 
@@ -113,9 +113,9 @@ if __name__ == "__main__":
                 x = data.to(device)
 
                 alpha = scheduler.get_alpha(epoch, i)
-                trainLoader.dataset.setAlpha(alpha)
+                trainLoader.dataset.set_alpha(alpha)
                 gan.generator.set_alpha(alpha)
-                gan.discriminator.setAlpha(alpha)
+                gan.discriminator.set_alpha(alpha)
 
                 stepLosses = gan.trainDis(x)
 
@@ -133,7 +133,7 @@ if __name__ == "__main__":
                     grid = torchvision.utils.make_grid(outputs, nrow=4, normalize=True, value_range=(0,1))
                     if write_batch:
 
-                        scale = trainLoader.dataset.getScale()
+                        scale = trainLoader.dataset.get_scale()
                         resize_grid = TF.resize(
                             grid, 
                             [grid.shape[1] * (64 // scale), grid.shape[2] * (64 // scale)],
@@ -141,7 +141,7 @@ if __name__ == "__main__":
                         )
                         torchvision.utils.save_image(
                             resize_grid,
-                            f"post_scale_output_{trainLoader.dataset.getScale()}.png",
+                            f"post_scale_output_{trainLoader.dataset.get_scale()}.png",
                             normalize=True
                         )
 

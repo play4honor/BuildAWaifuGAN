@@ -1,5 +1,6 @@
 from baseGan import WassersteinLoss, ModelConfig, BaseGAN
-from proGAN import ProDis, ProGen, ProGANScheduler
+from proGAN import ProDis, ProGANScheduler
+from styleGAN import StyleGen, StyleConfig
 from faceDataset import FaceDataset
 
 import torch
@@ -15,13 +16,14 @@ print(f"Using {device}")
 
 # Model Design
 USE_GREYSCALE = True
-LATENT_SIZE = 192
-LAYER_SIZE = 192
+LATENT_SIZE = 128
+LAYER_SIZE = 128
+LATENT_MAPPING_LAYERS = 8
 
 # Training Details
 BATCH_SIZE = 32
 DATA_SIZE = 15000
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.001
 EPOCHS_PER_STEP = 8
 SCALE_STEPS = 4
 WRITE_EVERY_N = 50
@@ -36,12 +38,21 @@ print(f"Batches: {len(trainLoader)}")
 
 # Set up GAN
 
-gan = BaseGAN(LATENT_SIZE, LEARNING_RATE, device)
+gen_config = StyleConfig(
+    latent_noise_size=LATENT_SIZE,
+    latent_mapping_size=LAYER_SIZE,
+    latent_mapping_layers=LATENT_MAPPING_LAYERS,
+    output_depth=channels,
+    leakiness=0.2,
+    channel_depth=LAYER_SIZE
+)
+
+gan = BaseGAN(LATENT_SIZE, device)
 
 gan.setLoss(WassersteinLoss(sigmoid=False))
 
-generator = ProGen(latentDim=LATENT_SIZE, firstLayerDepth=LAYER_SIZE, outputDepth=channels)
-genOptim = optimizer(filter(lambda p: p.requires_grad, generator.parameters()), lr=LEARNING_RATE)
+generator = StyleGen(gen_config)
+genOptim = optimizer(generator.get_params(LEARNING_RATE))
 
 gan.setGen(generator, genOptim)
 
@@ -79,12 +90,12 @@ if __name__ == "__main__":
             curr_scale = trainLoader.dataset.getScale()
             trainLoader.dataset.setScale(curr_scale*2)
             # TKTK: Add a method to base_gan to do this whole operation
-            new_gen_layers = gan.generator.addLayer(LAYER_SIZE)
-            new_dis_layers = gan.discriminator.addLayer(LAYER_SIZE)
+            new_gen_layers = gan.generator.add_layer()
+            new_dis_layers = gan.discriminator.addLayer()
             gan.generator.to(device)
             gan.discriminator.to(device)
 
-            gan.gen_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.generator.parameters()), lr=LEARNING_RATE)
+            gan.gen_optimizer = optimizer(generator.get_params(LEARNING_RATE))
             gan.dis_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.discriminator.parameters()), lr=LEARNING_RATE)
 
 
@@ -93,7 +104,7 @@ if __name__ == "__main__":
 
             alpha = scheduler.get_alpha(epoch, i)
             trainLoader.dataset.setAlpha(alpha)
-            gan.generator.setAlpha(alpha)
+            gan.generator.set_alpha(alpha)
             gan.discriminator.setAlpha(alpha)
 
             stepLosses = gan.trainDis(x)

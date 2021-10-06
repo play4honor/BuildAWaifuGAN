@@ -33,7 +33,6 @@ class BaseGAN():
     def __init__(
         self,
         dimLatentVector: int,
-        baseLearningRate: float,
         device: str,
         gradientPenalty=True
     ):
@@ -44,7 +43,6 @@ class BaseGAN():
 
         self.device = device
         self.config.dimLatentVector = dimLatentVector
-        self.config.baseLearningRate = baseLearningRate
         self.config.gradientPenalty = gradientPenalty
 
         self.generator = None

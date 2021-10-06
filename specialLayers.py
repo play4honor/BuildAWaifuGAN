@@ -48,18 +48,20 @@ class AdaIN(nn.Module):
         self.w_size = w_size
         self.channels = channels
 
-        self.layer = EqualizedLinear(w_size, channels * 2)
+        self.layerA = EqualizedLinear(w_size, channels * 2)
         self.instance_norm = nn.InstanceNorm2d(channels)
 
     def forward(self, w, x):
 
-        y = self.layer(w)
-        y = y.view(self.channels, 2)
+        y = self.layerA(w)
+        y = y.view(-1, self.channels, 2, 1, 1)
+        y = y.expand(-1, -1, -1, 4, 4)
+        y = y.permute(0, 1, 3, 4, 2)
 
         # N x C x H x W
         normed_x = self.instance_norm(x)
 
-        return (normed_x * (y[:, 0] + 1)) + y[:, 1]
+        return (normed_x * (y[:, :, :, :, 0] + 1)) + y[:, :, :, :, 1]
 
 
 class EqualizedLayer(nn.Module):
@@ -157,8 +159,13 @@ class WeirdoNorm(nn.Module):
     def forward(self, x, epsilon=1e-8):
         return x * (((x**2).mean(dim=1, keepdim=True) + epsilon).rsqrt())
 
-def scaleBilinear(x, factor):
+class BilinearScaler():
+    def __init__(self, factor):
+        self.factor = factor
 
-    new_size = [int(x.shape[-2] * factor), int(x.shape[-1] * factor)]
+    def __call__(self, x):
+        return self.scale(x)
 
-    return TF.resize(x, size = new_size)
+    def scale(self, x):
+        new_size = [int(x.shape[-2] * self.factor), int(x.shape[-1] * self.factor)]
+        return TF.resize(x, size = new_size)

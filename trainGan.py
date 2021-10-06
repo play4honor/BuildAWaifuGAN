@@ -11,6 +11,8 @@ from torch.utils.tensorboard import SummaryWriter
 import torchvision
 import torchvision.transforms.functional as TF
 
+import os
+
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(f"Using {device}")
 
@@ -22,11 +24,11 @@ LATENT_MAPPING_LAYERS = 8
 
 # Training Details
 BATCH_SIZE = 32
-DATA_SIZE = 15000
+DATA_SIZE = 60_000
 LEARNING_RATE = 0.001
 EPOCHS_PER_STEP = 8
 SCALE_STEPS = 4
-WRITE_EVERY_N = 50
+WRITE_EVERY_N = 150
 OPTIMIZER = "Adam"
 
 channels = 1 if USE_GREYSCALE else 3
@@ -157,4 +159,8 @@ if __name__ == "__main__":
 
                 j += 1
 
-            gan.save(f"models/Epoch_{epoch}_model.zip")
+
+            if not os.path.isdir("./models"):
+                os.makedirs("./models")
+            gan.save(f"./models/Epoch_{epoch}_model.zip")
+            

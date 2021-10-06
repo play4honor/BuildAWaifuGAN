@@ -48,7 +48,7 @@ class StyleGen(nn.Module):
         # Initialize Synthesis Network
         self.synthesis_layers = nn.ModuleList()
 
-        self.learned_input = nn.Parameter(torch.randn(1, self.config.channel_depth, 4, 4))
+        self.learned_input = nn.Parameter(torch.ones(1, self.config.channel_depth, 4, 4))
         
         # Initial layer
         self.synthesis_layers.append(nn.ModuleList())

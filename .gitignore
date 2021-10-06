@@ -7,3 +7,4 @@ raw_data/
 sample_data/
 *.png
 celeba/
+models/

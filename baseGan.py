@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
 
-import math
+import os
+import io
+import zipfile
+import pickle as pkl
 
 class WassersteinLoss():
 
@@ -32,24 +35,36 @@ class BaseGAN():
 
     def __init__(
         self,
-        dimLatentVector: int,
-        device: str,
-        gradientPenalty=True
+        dimLatentVector: int = None,
+        device: str = None,
+        gradientPenalty=True,
+        config = None,
+        fromFile = None
     ):
+
         if device not in ['cuda:0', 'cpu']:
             raise ValueError(f"Device must be either cuda:0 or cpu, not whatever nonsense {device} is.")
-        
-        self.config = ModelConfig()
 
-        self.device = device
-        self.config.dimLatentVector = dimLatentVector
-        self.config.gradientPenalty = gradientPenalty
+        if fromFile is not None:
 
-        self.generator = None
-        self.gen_optimizer = None
+            self.config = config
+            self.device = device
+            self.generator = fromFile["generator"]
+            self.discriminator = fromFile["discriminator"]
 
-        self.discriminator = None
-        self.dis_optimizer = None
+        else:
+
+            self.config = ModelConfig()
+
+            self.device = device
+            self.config.dimLatentVector = dimLatentVector
+            self.config.gradientPenalty = gradientPenalty
+
+            self.generator = None
+            self.gen_optimizer = None
+
+            self.discriminator = None
+            self.dis_optimizer = None
 
     def setGen(self, net, optimizer):
         self.generator = net.to(self.device)
@@ -189,14 +204,42 @@ class BaseGAN():
     def _hasOptimizers(self):
         return self.gen_optimizer is not None and self.dis_optimizer is not None
 
-    def save(self):
+    def save(self, path):
 
-        pass
+        torch.save(self.generator, "___gen.pt")
+        torch.save(self.discriminator, "___dis.pt")
+
+        with open("___config.pkl", mode="wb") as f:
+            pkl.dump(self.config, f)
+
+        with zipfile.ZipFile(path, mode="w") as f:
+            f.write("___gen.pt", "gen.pt")
+            f.write("___dis.pt", "dis.pt")
+            f.write("___config.pkl", "config.pkl")
+
+        os.remove("___gen.pt")
+        os.remove("___dis.pt")
+        os.remove("___config.pkl")
 
     @staticmethod
-    def load():
+    def load(path, device):
 
-        pass
+        net_dict = {}
+
+        with zipfile.ZipFile(path, mode="r") as f:
+
+            with io.BytesIO(f.read("gen.pt")) as g:
+                net_dict["generator"] = torch.load(g, map_location=device)
+
+            with io.BytesIO(f.read("dis.pt")) as d:
+                net_dict["discriminator"] = torch.load(d, map_location=device)
+
+            with io.BytesIO(f.read("config.pkl")) as c:
+                config = pkl.load(c)
+
+        bg = BaseGAN(device=device, config=config, fromFile=net_dict)
+
+        return bg
 
 if __name__ == "__main__":
 

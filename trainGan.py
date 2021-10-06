@@ -156,3 +156,5 @@ if __name__ == "__main__":
                     #writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], obs)
 
                 j += 1
+
+            gan.save(f"models/Epoch_{epoch}_model.zip")

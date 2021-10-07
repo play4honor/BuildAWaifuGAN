@@ -139,7 +139,8 @@ class MiniBatchSD(nn.Module):
             raise ValueError(f'Batch size must be divisible by {self.subGroupSize}')
         
         y = x.view(-1, self.subGroupSize, size[1], size[2], size[3])        # B x subgroup size x channels x h x w
-        y = torch.std(y, dim = 1)                                           # B x sd channels x sd h x sd w
+        y = torch.var(y, dim = 1)                                           # B x sd channels x var h x var w
+        y = torch.sqrt(y + 1e-8)                                            # -____________-
         y = y.view(G, -1)                                                   # n groups x sds of stuff
         y = torch.mean(y, 1).view(G, 1)                                     # n groups x 1 (mean of sds of stuff)
         y = y.expand(G, size[2]*size[3]).view((G, 1, 1, size[2], size[3]))  # n_groups x h*w -> n groups x 1 x 1 x h x w

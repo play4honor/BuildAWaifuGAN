@@ -90,6 +90,7 @@ if __name__ == "__main__":
         on_trace_ready=torch.profiler.tensorboard_trace_handler("./runs/profiler"),
         with_stack=True
     ) as profiler:
+    # with torch.autograd.detect_anomaly():
 
         for epoch in range(num_epochs):
             print(f"Starting epoch {epoch}...")

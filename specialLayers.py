@@ -170,3 +170,17 @@ class BilinearScaler():
     def scale(self, x):
         new_size = [int(x.shape[-2] * self.factor), int(x.shape[-1] * self.factor)]
         return TF.resize(x, size = new_size)
+
+class NoiseLayer(nn.Module):
+
+    def __init__(self, n_channels):
+
+        super(NoiseLayer, self).__init__()
+        self.weights = nn.Parameter(torch.zeros((1, n_channels, 1, 1)))
+    
+    def forward(self, x):
+
+        noise = torch.randn((x.shape[0], 1, x.shape[2], x.shape[3]), device=x.device)
+
+        return x + self.weights * noise
+

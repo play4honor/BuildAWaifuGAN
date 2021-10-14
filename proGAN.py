@@ -68,13 +68,13 @@ class ProGen(nn.Module):
         self.toRGB.append(nn.ModuleList())
         self.toRGB[0].append(EqualizedConv2d(firstLayerDepth, self.outputDepth, 1))
         
-    def setAlpha(self, alpha: float):
+    def set_alpha(self, alpha: float):
 
         assert alpha < 1 and alpha >= 0
         self.alpha = alpha
         
 
-    def addLayer(self, newLayerDepth):
+    def add_layer(self, newLayerDepth):
 
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
@@ -181,13 +181,13 @@ class ProDis(nn.Module):
         self.fromRGB[0].append(nn.LeakyReLU(self.leakiness))
 
         
-    def setAlpha(self, alpha: float):
+    def set_alpha(self, alpha: float):
 
         assert alpha < 1 and alpha >= 0
         self.alpha = alpha
         
 
-    def addLayer(self, newLayerDepth):
+    def add_layer(self, newLayerDepth):
 
         self.layers.append(nn.ModuleList())
         self.layers[-1].append(EqualizedConv2d(self.scales[-1], newLayerDepth, 3, padding=1))
@@ -289,8 +289,8 @@ if __name__ == '__main__':
     p = test_dis(out)
     print(p.shape)
 
-    test_gen.addLayer(32)
-    test_dis.addLayer(64)
+    test_gen.add_layer(32)
+    test_dis.add_layer(64)
 
     print("Added Layers:")
 
@@ -301,8 +301,8 @@ if __name__ == '__main__':
     print(p.shape)
 
     loss = test_dis(out)
-    test_gen.setAlpha(0.5)
-    test_dis.setAlpha(0.5)
+    test_gen.set_alpha(0.5)
+    test_dis.set_alpha(0.5)
 
     print("With Alpha:")
 

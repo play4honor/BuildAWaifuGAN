@@ -1,7 +1,68 @@
 import torch
 import torch.nn as nn
+import torchvision.transforms.functional as TF
+import torch.nn.functional as F
 import numpy as np
 import math
+
+class LatentMapping(nn.Module):
+    """
+    Submodule that handles the various linear layers from the latent input
+    to the transformed space W, for perceptual linearity.
+    """
+
+    def __init__(self, noise_size:int, n_layers:int, layer_size:int, leakiness: float=0.2):
+
+        super(LatentMapping, self).__init__()
+
+        self.leakiness = leakiness
+        self.noise_norm = WeirdoNorm()
+        self.layers = nn.ModuleList()
+
+        self.layers.append(EqualizedLinear(noise_size, layer_size))
+
+        for _ in range(n_layers-1):
+            self.layers.append(EqualizedLinear(layer_size, layer_size)) 
+
+    def forward(self, x):
+
+        x = self.noise_norm(x)
+
+        for l in self.layers:
+
+            x = l(x)
+            x = F.leaky_relu(x, self.leakiness)
+
+        return x
+
+
+class AdaIN(nn.Module):
+    """
+    AdaIN layer for use before each convolutional layer
+    """
+
+    def __init__(self, w_size: int, channels: int):
+
+        super(AdaIN, self).__init__()
+
+        self.w_size = w_size
+        self.channels = channels
+
+        self.layerA = EqualizedLinear(w_size, channels * 2)
+        self.instance_norm = nn.InstanceNorm2d(channels)
+
+    def forward(self, w, x):
+
+        y = self.layerA(w)
+        y = y.view(-1, self.channels, 2, 1, 1)
+        y = y.expand(-1, -1, -1, x.shape[2], x.shape[3])
+        y = y.permute(0, 1, 3, 4, 2)
+
+        # N x C x H x W
+        normed_x = self.instance_norm(x)
+
+        return (normed_x * (y[:, :, :, :, 0] + 1)) + y[:, :, :, :, 1]
+
 
 class EqualizedLayer(nn.Module):
     """
@@ -78,7 +139,8 @@ class MiniBatchSD(nn.Module):
             raise ValueError(f'Batch size must be divisible by {self.subGroupSize}')
         
         y = x.view(-1, self.subGroupSize, size[1], size[2], size[3])        # B x subgroup size x channels x h x w
-        y = torch.std(y, dim = 1)                                           # B x sd channels x sd h x sd w
+        y = torch.var(y, dim = 1)                                           # B x sd channels x var h x var w
+        y = torch.sqrt(y + 1e-8)                                            # -____________-
         y = y.view(G, -1)                                                   # n groups x sds of stuff
         y = torch.mean(y, 1).view(G, 1)                                     # n groups x 1 (mean of sds of stuff)
         y = y.expand(G, size[2]*size[3]).view((G, 1, 1, size[2], size[3]))  # n_groups x h*w -> n groups x 1 x 1 x h x w
@@ -97,3 +159,14 @@ class WeirdoNorm(nn.Module):
 
     def forward(self, x, epsilon=1e-8):
         return x * (((x**2).mean(dim=1, keepdim=True) + epsilon).rsqrt())
+
+class BilinearScaler():
+    def __init__(self, factor):
+        self.factor = factor
+
+    def __call__(self, x):
+        return self.scale(x)
+
+    def scale(self, x):
+        new_size = [int(x.shape[-2] * self.factor), int(x.shape[-1] * self.factor)]
+        return TF.resize(x, size = new_size)

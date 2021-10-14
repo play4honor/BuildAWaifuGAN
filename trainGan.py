@@ -13,8 +13,10 @@ import torchvision.transforms.functional as TF
 
 import os
 
+# Resourcing
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(f"Using {device}")
+NUM_WORKERS = 6
 
 # Model Design
 USE_GREYSCALE = True
@@ -35,7 +37,7 @@ channels = 1 if USE_GREYSCALE else 3
 optimizer = getattr(optim, OPTIMIZER)
 
 faceDS = FaceDataset("./img/input", greyscale=USE_GREYSCALE, size=DATA_SIZE)
-trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True)
+trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
 print(f"Batches: {len(trainLoader)}")
 
 # Set up GAN
@@ -49,28 +51,28 @@ gen_config = StyleConfig(
     channel_depth=LAYER_SIZE
 )
 
-gan = BaseGAN(LATENT_SIZE, device)
-
-gan.setLoss(WassersteinLoss(sigmoid=False))
-
-generator = StyleGen(gen_config)
-genOptim = optimizer(generator.get_params(LEARNING_RATE))
-
-gan.setGen(generator, genOptim)
-
-discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
-disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=LEARNING_RATE)
-
-gan.setDis(discriminator, disOptim)
-
-scheduler = ProGANScheduler(EPOCHS_PER_STEP, len(trainLoader), scale_steps=SCALE_STEPS)
-num_epochs = scheduler.get_max_epochs()
-
-print(f"Discriminator total initial weights: {gan.discriminator.num_params()}")
-
 # Training
 
 if __name__ == "__main__":
+
+    gan = BaseGAN(LATENT_SIZE, device)
+
+    gan.setLoss(WassersteinLoss(sigmoid=False))
+
+    generator = StyleGen(gen_config)
+    genOptim = optimizer(generator.get_params(LEARNING_RATE))
+
+    gan.setGen(generator, genOptim)
+
+    discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
+    disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=LEARNING_RATE)
+
+    gan.setDis(discriminator, disOptim)
+
+    scheduler = ProGANScheduler(EPOCHS_PER_STEP, len(trainLoader), scale_steps=SCALE_STEPS)
+    num_epochs = scheduler.get_max_epochs()
+
+    print(f"Discriminator total initial weights: {gan.discriminator.num_params()}")
 
     writer = SummaryWriter()
 

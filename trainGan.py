@@ -18,18 +18,18 @@ print(f"Using {device}")
 
 # Model Design
 USE_GREYSCALE = True
-LATENT_SIZE = 128
-LAYER_SIZE = 128
+LATENT_SIZE = 256
+LAYER_SIZE = 256
 LATENT_MAPPING_LAYERS = 8
 
 # Training Details
 BATCH_SIZE = 32
-DATA_SIZE = 60_000
+DATA_SIZE = 30_000
 LEARNING_RATE = 0.001
 EPOCHS_PER_STEP = 8
 SCALE_STEPS = 4
 WRITE_EVERY_N = 150
-OPTIMIZER = "Adam"
+OPTIMIZER = "AdamW"
 
 channels = 1 if USE_GREYSCALE else 3
 optimizer = getattr(optim, OPTIMIZER)

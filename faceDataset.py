@@ -3,7 +3,7 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision
 from torchvision.io import ImageReadMode
 import os
-
+from specialLayers import BilinearScaler
 
 class FaceDataset(Dataset):
     
@@ -18,7 +18,9 @@ class FaceDataset(Dataset):
         self.ext = ext
         self.path = path
         self.downsampler = None
+        self.doubleDownsampler = None
         self.alpha = 0
+        self.upsampler = BilinearScaler(2)
 
         self.readMode = ImageReadMode.GRAY if greyscale else ImageReadMode.UNCHANGED
 
@@ -47,18 +49,17 @@ class FaceDataset(Dataset):
     def __getitem__(self, idx):
         
         p = self.fileList[idx]
-        p = torchvision.io.read_image(p, self.readMode)
+        raw_image = torchvision.io.read_image(p, self.readMode)
 
         if self.downsampler is not None:
 
-            p = self.downsampler(p.type(torch.FloatTensor)) / 255.0
+            p = self.downsampler(raw_image.type(torch.FloatTensor)) / 255.0
 
             if self.alpha > 0:
-                s = p.shape
-                y = p.reshape((s[0], s[1]//2, 2, s[2]//2, 2))
-                y = torch.mean(y, dim=[2, 4], keepdim=True)
-                y = torch.tile(y, (1, 1, 2, 1, 2))
-                y = y.reshape(s)
+
+                y = self.doubleDownsampler(raw_image.type(torch.FloatTensor)) / 255.0
+                y = self.upsampler(y)
+
                 p = y * self.alpha + p * (1.0 - self.alpha)
 
             return p
@@ -80,6 +81,7 @@ class FaceDataset(Dataset):
         Set the scale of the images
         """
         self.scale = scale
+        self.doubleDownsampler = self.downsampler
         self.downsampler = torchvision.transforms.Resize((self.scale, self.scale))
 
     def set_alpha(self, alpha):

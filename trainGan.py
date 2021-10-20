@@ -16,22 +16,22 @@ import os
 # Resourcing
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(f"Using {device}")
-NUM_WORKERS = 6
+NUM_WORKERS = 0
 
 # Model Design
 USE_GREYSCALE = True
-LATENT_SIZE = 128
-LAYER_SIZE = 128
+LATENT_SIZE = 256
+LAYER_SIZE = 256
 LATENT_MAPPING_LAYERS = 8
 
 # Training Details
 BATCH_SIZE = 32
-DATA_SIZE = 5_000
+DATA_SIZE = 10_000
 LEARNING_RATE = 0.001
-EPOCHS_PER_STEP = 8
+EPOCHS_PER_STEP = 25
 SCALE_STEPS = 4
 WRITE_EVERY_N = 150
-OPTIMIZER = "Adam"
+OPTIMIZER = "AdamW"
 
 channels = 1 if USE_GREYSCALE else 3
 optimizer = getattr(optim, OPTIMIZER)
@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 j += 1
 
 
-            if not os.path.isdir("./models"):
-                os.makedirs("./models")
-            gan.save(f"./models/Epoch_{epoch}_model.zip")
+            # if not os.path.isdir("./models"):
+            #     os.makedirs("./models")
+            # gan.save(f"./models/Epoch_{epoch}_model.zip")
             

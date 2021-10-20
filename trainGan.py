@@ -1,7 +1,7 @@
 from baseGan import WassersteinLoss, ModelConfig, BaseGAN
 from proGAN import ProDis, ProGANScheduler
 from styleGAN import StyleGen, StyleConfig
-from faceDataset import FaceDataset
+from faceDataset import FaceDataset, FilteringFaceDataset
 
 import torch
 from torch.utils.data import DataLoader
@@ -28,7 +28,7 @@ LATENT_MAPPING_LAYERS = 8
 BATCH_SIZE = 32
 DATA_SIZE = 10_000
 LEARNING_RATE = 0.001
-EPOCHS_PER_STEP = 25
+EPOCHS_PER_STEP = 12
 SCALE_STEPS = 4
 WRITE_EVERY_N = 150
 OPTIMIZER = "AdamW"
@@ -36,7 +36,7 @@ OPTIMIZER = "AdamW"
 channels = 1 if USE_GREYSCALE else 3
 optimizer = getattr(optim, OPTIMIZER)
 
-faceDS = FaceDataset("./img/input", greyscale=USE_GREYSCALE, size=DATA_SIZE)
+faceDS = FaceDataset("./img/input3", greyscale=USE_GREYSCALE, size=DATA_SIZE)
 trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
 print(f"Batches: {len(trainLoader)}")
 

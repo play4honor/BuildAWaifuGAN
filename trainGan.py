@@ -1,7 +1,7 @@
 from baseGan import WassersteinLoss, ModelConfig, BaseGAN
 from proGAN import ProDis, ProGANScheduler
 from styleGAN import StyleGen, StyleConfig
-from faceDataset import FaceDataset, FilteringFaceDataset
+from faceDataset import FaceDataset
 
 import torch
 from torch.utils.data import DataLoader
@@ -19,7 +19,7 @@ print(f"Using {device}")
 NUM_WORKERS = 0
 
 # Model Design
-USE_GREYSCALE = True
+USE_GREYSCALE = False
 LATENT_SIZE = 256
 LAYER_SIZE = 256
 LATENT_MAPPING_LAYERS = 8

@@ -19,25 +19,25 @@ print(f"Using {device}")
 NUM_WORKERS = 0
 
 # Model Design
-USE_GREYSCALE = False
+USE_GREYSCALE = True
 LATENT_SIZE = 256
 LAYER_SIZE = 256
 LATENT_MAPPING_LAYERS = 8
 
 # Training Details
 BATCH_SIZE = 32
-DATA_SIZE = 10_000
+DATA_SIZE = 5_000
 LEARNING_RATE = 0.001
-EPOCHS_PER_STEP = 12
+EPOCHS_PER_STEP = 120
 SCALE_STEPS = 4
 WRITE_EVERY_N = 150
-OPTIMIZER = "AdamW"
+OPTIMIZER = "Adam"
 
 channels = 1 if USE_GREYSCALE else 3
 optimizer = getattr(optim, OPTIMIZER)
 
 faceDS = FaceDataset("./img/input3", greyscale=USE_GREYSCALE, size=DATA_SIZE)
-trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
+trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True)
 print(f"Batches: {len(trainLoader)}")
 
 # Set up GAN
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     gan.setGen(generator, genOptim)
 
     discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
-    disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=LEARNING_RATE)
+    disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=LEARNING_RATE * 0.1)
 
     gan.setDis(discriminator, disOptim)
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
                 gan.discriminator.to(device)
 
                 gan.gen_optimizer = optimizer(generator.get_params(LEARNING_RATE))
-                gan.dis_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.discriminator.parameters()), lr=LEARNING_RATE)
+                gan.dis_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.discriminator.parameters()), lr=LEARNING_RATE * 0.1)
 
 
             for i, data in enumerate(trainLoader):
@@ -163,7 +163,10 @@ if __name__ == "__main__":
                 j += 1
 
 
-            # if not os.path.isdir("./models"):
-            #     os.makedirs("./models")
-            # gan.save(f"./models/Epoch_{epoch}_model.zip")
-            
+            if not os.path.isdir("./models"):
+                os.makedirs("./models")
+
+            if epoch % 15 == 14:
+                gan.save(f"./models/Epoch_{epoch}_model.zip")
+
+        gan.save("./models/final_model.zip")

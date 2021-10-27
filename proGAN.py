@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD, WeirdoNorm
+from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD, WeirdoNorm, BilinearScaler
 
 class Interpolator2x(nn.Module):
     def __init__(self):
@@ -153,7 +153,7 @@ class ProDis(nn.Module):
         self.leakiness = leakiness
 
         # Initialize downsampler
-        self.downsampler = nn.AvgPool2d(kernel_size=2)
+        self.downsampler = BilinearScaler(0.5)
 
         self.layers = nn.ModuleList()
         self.scales = [firstLayerDepth]

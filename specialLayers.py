@@ -119,16 +119,16 @@ class EqualizedConv2d(EqualizedLayer):
             nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding), equalized
         )    
 
-class MiniBatchSD(nn.Module):
+class MiniBatchStats(nn.Module):
     """
-    Take tensor of size BxCxHxW and produces a tensor of size B x C+1 x H x W
+    Take tensor of size BxCxHxW and produces a tensor of size B x C+2 x H x W
     where the additional dimension is a constant tensor with value equal to the
-    the average of all standard deviations of each channel and each location
+    the average of all standard deviations and means of each channel and each location
     in the minibatch
     """
 
     def __init__(self, subGroupSize=4):
-        super(MiniBatchSD, self).__init__()
+        super(MiniBatchStats, self).__init__()
         self.subGroupSize = subGroupSize
 
     def forward(self, x):
@@ -147,7 +147,15 @@ class MiniBatchSD(nn.Module):
         y = y.expand(G, self.subGroupSize, -1, -1, -1)                      # n_groups x subgroup size x 1 x h x w
         y = y.contiguous().view((-1, 1, size[2], size[3]))                  # B x 1 x h x w
 
-        return torch.cat((x, y), dim = 1)
+        z = x.view(-1, self.subGroupSize, size[1], size[2], size[3])        # B x subgroup size x channels x h x w
+        z = torch.mean(z, dim = 1)                                          # B x mean channels x var h x var w
+        z = z.view(G, -1)                                                   # n groups x means of stuff
+        z = torch.mean(z, 1).view(G, 1)                                     # n groups x 1 (mean of means of stuff)
+        z = z.expand(G, size[2]*size[3]).view((G, 1, 1, size[2], size[3]))  # n_groups x h*w -> n groups x 1 x 1 x h x w
+        z = z.expand(G, self.subGroupSize, -1, -1, -1)                      # n_groups x subgroup size x 1 x h x w
+        z = z.contiguous().view((-1, 1, size[2], size[3]))                  # B x 1 x h x w
+
+        return torch.cat((x, y, z), dim = 1)
 
 class WeirdoNorm(nn.Module):
     """
@@ -170,3 +178,17 @@ class BilinearScaler():
     def scale(self, x):
         new_size = [int(x.shape[-2] * self.factor), int(x.shape[-1] * self.factor)]
         return TF.resize(x, size = new_size)
+
+class NoiseLayer(nn.Module):
+
+    def __init__(self, n_channels):
+
+        super(NoiseLayer, self).__init__()
+        self.weights = nn.Parameter(torch.zeros((1, n_channels, 1, 1)))
+    
+    def forward(self, x):
+
+        noise = torch.randn((x.shape[0], 1, x.shape[2], x.shape[3]), device=x.device)
+
+        return x + self.weights * noise
+

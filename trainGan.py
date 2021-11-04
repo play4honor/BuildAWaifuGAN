@@ -13,29 +13,38 @@ import torchvision.transforms.functional as TF
 
 import os
 
+# Resourcing
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(f"Using {device}")
+NUM_WORKERS = 0
 
 # Model Design
 USE_GREYSCALE = True
-LATENT_SIZE = 128
-LAYER_SIZE = 128
+LATENT_SIZE = 256
+LAYER_SIZE = 256
 LATENT_MAPPING_LAYERS = 8
 
 # Training Details
 BATCH_SIZE = 32
-DATA_SIZE = 60_000
-LEARNING_RATE = 0.001
-EPOCHS_PER_STEP = 8
+DATA_SIZE = 5_000
+EPOCHS_PER_STEP = 120
 SCALE_STEPS = 4
 WRITE_EVERY_N = 150
 OPTIMIZER = "Adam"
 
+lr_schedule = {
+    4: 0.001,
+    8: 0.0008,
+    16: 0.0004,
+    32: 0.0001,
+    64: 0.0001
+}
+
 channels = 1 if USE_GREYSCALE else 3
 optimizer = getattr(optim, OPTIMIZER)
 
-faceDS = FaceDataset("./img/input", greyscale=USE_GREYSCALE, size=DATA_SIZE)
-trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True)
+faceDS = FaceDataset("./img/input3", greyscale=USE_GREYSCALE, size=DATA_SIZE)
+trainLoader = DataLoader(faceDS, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True)
 print(f"Batches: {len(trainLoader)}")
 
 # Set up GAN
@@ -49,28 +58,34 @@ gen_config = StyleConfig(
     channel_depth=LAYER_SIZE
 )
 
-gan = BaseGAN(LATENT_SIZE, device)
-
-gan.setLoss(WassersteinLoss(sigmoid=False))
-
-generator = StyleGen(gen_config)
-genOptim = optimizer(generator.get_params(LEARNING_RATE))
-
-gan.setGen(generator, genOptim)
-
-discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
-disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=LEARNING_RATE)
-
-gan.setDis(discriminator, disOptim)
-
-scheduler = ProGANScheduler(EPOCHS_PER_STEP, len(trainLoader), scale_steps=SCALE_STEPS)
-num_epochs = scheduler.get_max_epochs()
-
-print(f"Discriminator total initial weights: {gan.discriminator.num_params()}")
-
 # Training
 
 if __name__ == "__main__":
+
+    scheduler = ProGANScheduler(
+        EPOCHS_PER_STEP,
+        len(trainLoader),
+        scale_steps=SCALE_STEPS,
+        lr_schedule=lr_schedule
+    )
+
+    gan = BaseGAN(LATENT_SIZE, device)
+
+    gan.setLoss(WassersteinLoss(sigmoid=False))
+
+    generator = StyleGen(gen_config)
+    genOptim = optimizer(generator.get_params(scheduler.get_lr()))
+
+    gan.setGen(generator, genOptim)
+
+    discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
+    disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=scheduler.get_lr() * 0.1)
+
+    gan.setDis(discriminator, disOptim)
+
+    num_epochs = scheduler.get_max_epochs()
+
+    print(f"Discriminator total initial weights: {gan.discriminator.num_params()}")
 
     writer = SummaryWriter()
 
@@ -108,8 +123,8 @@ if __name__ == "__main__":
                 gan.generator.to(device)
                 gan.discriminator.to(device)
 
-                gan.gen_optimizer = optimizer(generator.get_params(LEARNING_RATE))
-                gan.dis_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.discriminator.parameters()), lr=LEARNING_RATE)
+                gan.gen_optimizer = optimizer(generator.get_params(scheduler.get_lr()))
+                gan.dis_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.discriminator.parameters()), lr=scheduler.get_lr() * 0.1)
 
 
             for i, data in enumerate(trainLoader):
@@ -163,5 +178,8 @@ if __name__ == "__main__":
 
             if not os.path.isdir("./models"):
                 os.makedirs("./models")
-            gan.save(f"./models/Epoch_{epoch}_model.zip")
-            
+
+            if epoch % 15 == 14:
+                gan.save(f"./models/Epoch_{epoch}_model.zip")
+
+        gan.save("./models/final_model.zip")

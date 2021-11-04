@@ -5,7 +5,8 @@ from specialLayers import (
     EqualizedConv2d,
     LatentMapping,
     AdaIN,
-    BilinearScaler
+    BilinearScaler,
+    NoiseLayer,
 )
 from dataclasses import dataclass
 
@@ -17,6 +18,7 @@ class StyleConfig:
     output_depth: int = 3
     leakiness: float = 0.2
     channel_depth: int = 128
+    use_noise: bool = True
 
 class StyleGen(nn.Module):
 
@@ -49,14 +51,19 @@ class StyleGen(nn.Module):
         self.synthesis_layers = nn.ModuleList()
 
         self.learned_input = nn.Parameter(torch.ones(1, self.config.channel_depth, 4, 4))
+
+        # If we're using noise, append noise layers, else use nop Identity layers.
+        self.noise_class = NoiseLayer if self.config.use_noise else nn.Identity
         
         # Initial layer
         self.synthesis_layers.append(nn.ModuleList())
         self.synthesis_layers[0].append(EqualizedConv2d(self.config.channel_depth, self.config.channel_depth, 3, padding=1))
         self.synthesis_layers[0].append(nn.LeakyReLU(self.config.leakiness))
+        self.synthesis_layers[0].append(self.noise_class(self.config.channel_depth))
         self.synthesis_layers[0].append(AdaIN(self.config.latent_mapping_size, self.config.channel_depth))
         self.synthesis_layers[0].append(EqualizedConv2d(self.config.channel_depth, self.config.channel_depth, 3, padding=1))
         self.synthesis_layers[0].append(nn.LeakyReLU(self.config.leakiness))
+        self.synthesis_layers[0].append(self.noise_class(self.config.channel_depth))
         self.synthesis_layers[0].append(AdaIN(self.config.latent_mapping_size, self.config.channel_depth))
 
         # Last Convolution -> RGB
@@ -74,10 +81,12 @@ class StyleGen(nn.Module):
         self.synthesis_layers.append(nn.ModuleList())
         self.synthesis_layers[-1].append(EqualizedConv2d(self.config.channel_depth, self.config.channel_depth, 3, padding=1))
         self.synthesis_layers[-1].append(nn.LeakyReLU(self.config.leakiness))
+        self.synthesis_layers[-1].append(self.noise_class(self.config.channel_depth))
         self.synthesis_layers[-1].append(AdaIN(self.config.latent_mapping_size, self.config.channel_depth))
         self.synthesis_layers[-1].append(EqualizedConv2d(self.config.channel_depth, self.config.channel_depth, 3, padding=1))
         self.synthesis_layers[-1].append(nn.LeakyReLU(self.config.leakiness))
-        self.synthesis_layers[-1].append(AdaIN(self.config.latent_mapping_size, self.config.channel_depth))
+        self.synthesis_layers[-1].append(self.noise_class(self.config.channel_depth))
+        self.synthesis_layers[-1].append(AdaIN(self.config.channel_depth, self.config.channel_depth))
 
         self.toRGB.append(nn.ModuleList())
         self.toRGB[-1].append(EqualizedConv2d(self.config.channel_depth, self.config.output_depth, 1))

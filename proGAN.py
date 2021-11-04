@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchSD, WeirdoNorm
+from specialLayers import EqualizedLinear, EqualizedConv2d, MiniBatchStats, WeirdoNorm, BilinearScaler
 
 class Interpolator2x(nn.Module):
     def __init__(self):
@@ -139,7 +139,7 @@ class ProDis(nn.Module):
         firstLayerDepth: int,
         inputDepth: int=3,
         leakiness: float=0.2,
-        minibatchSD: bool=True,
+        minibatchStats: bool=True,
     ):
 
         super(ProDis, self).__init__()
@@ -153,7 +153,7 @@ class ProDis(nn.Module):
         self.leakiness = leakiness
 
         # Initialize downsampler
-        self.downsampler = nn.AvgPool2d(kernel_size=2)
+        self.downsampler = BilinearScaler(0.5)
 
         self.layers = nn.ModuleList()
         self.scales = [firstLayerDepth]
@@ -161,9 +161,9 @@ class ProDis(nn.Module):
         # Initial layer
         self.layers.append(nn.ModuleList())
         firstLayerActualDepth = firstLayerDepth
-        if minibatchSD:
-            self.layers[0].append(MiniBatchSD())
-            firstLayerActualDepth += 1
+        if minibatchStats:
+            self.layers[0].append(MiniBatchStats())
+            firstLayerActualDepth += 2
         self.layers[0].append(EqualizedConv2d(firstLayerActualDepth, firstLayerDepth, 3, padding=1))
         self.layers[0].append(nn.LeakyReLU(self.leakiness))
         self.layers[0].append(EqualizedConv2d(firstLayerDepth, firstLayerDepth, 3, padding=1))
@@ -247,11 +247,14 @@ class ProGANScheduler():
 
     """Controls scheduling for progressive GAN alpha (layer mixing) and scaling
     up, in terms of epochs."""
-    def __init__(self, epochs_per_step, num_batches, scale_steps: int = 4):
+    def __init__(self, epochs_per_step, num_batches, lr_schedule, scale_steps: int = 4):
         assert epochs_per_step > 1
         self.epochs_per_step = epochs_per_step
         self.num_batches = num_batches
         self.scale_steps = scale_steps
+        self.current_scale = 4
+
+        self.lr_schedule = lr_schedule
 
     def get_alpha(self, epoch, batch):
         if int(epoch / self.epochs_per_step) % 2 == 0:
@@ -260,10 +263,22 @@ class ProGANScheduler():
             return 1 - ((1 + batch + (epoch % self.epochs_per_step) * self.num_batches) / (1 + self.epochs_per_step * self.num_batches))
     
     def decide_scale(self, epoch):
-        return (epoch % (2 * self.epochs_per_step) == self.epochs_per_step) & (epoch != 0)
+
+        is_scaling = (epoch % (2 * self.epochs_per_step) == self.epochs_per_step) & (epoch != 0)
+
+        if is_scaling:
+            self.current_scale *= 2
+        return is_scaling
 
     def get_max_epochs(self):
         return 2 * self.epochs_per_step * self.scale_steps + self.epochs_per_step
+
+    def get_lr(self):
+        return self.lr_schedule[self.current_scale]
+
+
+
+
 
 if __name__ == '__main__':
 

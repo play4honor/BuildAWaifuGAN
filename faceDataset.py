@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, IterableDataset, DataLoader
+from torch.utils.data import Dataset, DataLoader
 import torchvision
 from torchvision.io import ImageReadMode
 import os

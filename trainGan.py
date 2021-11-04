@@ -27,11 +27,18 @@ LATENT_MAPPING_LAYERS = 8
 # Training Details
 BATCH_SIZE = 32
 DATA_SIZE = 5_000
-LEARNING_RATE = 0.001
 EPOCHS_PER_STEP = 120
 SCALE_STEPS = 4
 WRITE_EVERY_N = 150
 OPTIMIZER = "Adam"
+
+lr_schedule = {
+    4: 0.001,
+    8: 0.0008,
+    16: 0.0004,
+    32: 0.0001,
+    64: 0.0001
+}
 
 channels = 1 if USE_GREYSCALE else 3
 optimizer = getattr(optim, OPTIMIZER)
@@ -55,21 +62,27 @@ gen_config = StyleConfig(
 
 if __name__ == "__main__":
 
+    scheduler = ProGANScheduler(
+        EPOCHS_PER_STEP,
+        len(trainLoader),
+        scale_steps=SCALE_STEPS,
+        lr_schedule=lr_schedule
+    )
+
     gan = BaseGAN(LATENT_SIZE, device)
 
     gan.setLoss(WassersteinLoss(sigmoid=False))
 
     generator = StyleGen(gen_config)
-    genOptim = optimizer(generator.get_params(LEARNING_RATE))
+    genOptim = optimizer(generator.get_params(scheduler.get_lr()))
 
     gan.setGen(generator, genOptim)
 
     discriminator = ProDis(firstLayerDepth=LAYER_SIZE, inputDepth=channels)
-    disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=LEARNING_RATE * 0.1)
+    disOptim = optimizer(filter(lambda p: p.requires_grad, discriminator.parameters()), lr=scheduler.get_lr() * 0.1)
 
     gan.setDis(discriminator, disOptim)
 
-    scheduler = ProGANScheduler(EPOCHS_PER_STEP, len(trainLoader), scale_steps=SCALE_STEPS)
     num_epochs = scheduler.get_max_epochs()
 
     print(f"Discriminator total initial weights: {gan.discriminator.num_params()}")
@@ -110,8 +123,8 @@ if __name__ == "__main__":
                 gan.generator.to(device)
                 gan.discriminator.to(device)
 
-                gan.gen_optimizer = optimizer(generator.get_params(LEARNING_RATE))
-                gan.dis_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.discriminator.parameters()), lr=LEARNING_RATE * 0.1)
+                gan.gen_optimizer = optimizer(generator.get_params(scheduler.get_lr()))
+                gan.dis_optimizer = optimizer(filter(lambda p: p.requires_grad, gan.discriminator.parameters()), lr=scheduler.get_lr() * 0.1)
 
 
             for i, data in enumerate(trainLoader):

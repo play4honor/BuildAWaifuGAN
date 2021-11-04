@@ -149,7 +149,7 @@ class BaseGAN():
         loss_dict["dis_real"] = realLoss
         loss_dict["dis_fake"] = fakeLoss
 
-        totalLoss = realLoss + fakeLoss
+        totalLoss = (realLoss + fakeLoss) / 2
 
         # TKTK maybe there's some gradient penalty shit here?
         if self.config.gradientPenalty:

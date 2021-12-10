@@ -19,7 +19,7 @@ print(f"Using {device}")
 NUM_WORKERS = 0
 
 # Model Design
-USE_GREYSCALE = True
+USE_GREYSCALE = False
 LATENT_SIZE = 256
 LAYER_SIZE = 256
 LATENT_MAPPING_LAYERS = 8
@@ -27,8 +27,8 @@ LATENT_MAPPING_LAYERS = 8
 # Training Details
 BATCH_SIZE = 32
 DATA_SIZE = 5_000
-EPOCHS_PER_STEP = 120
-SCALE_STEPS = 4
+EPOCHS_PER_STEP = 16
+SCALE_STEPS = 3
 WRITE_EVERY_N = 150
 OPTIMIZER = "Adam"
 
@@ -168,10 +168,11 @@ if __name__ == "__main__":
                     writer.add_image("output", grid, obs)
                     writer.add_scalar("loss_discriminator", stepLosses["total_loss"], obs)
                     writer.add_scalar("loss_generator", stepLossGen, obs)
-                    writer.add_scalar("zgrad_penalty", stepLosses["grad_loss"], obs)
+                    writer.add_scalar("~grad_penalty", stepLosses["grad_loss"], obs)
                     writer.add_scalar("non_grad_loss", stepLosses["non_grad_loss"], obs)
-                    #writer.add_scalar("real_dis_loss", stepLosses["dis_real"], obs)
-                    #writer.add_scalar("fake_dis_loss", stepLosses["dis_fake"], obs)
+                    writer.add_scalar("~real_dis_loss", stepLosses["dis_real"], obs)
+                    writer.add_scalar("~fake_dis_loss", stepLosses["dis_fake"], obs)
+                    writer.add_scalar("overfit_loss", stepLosses["overfit_loss"], obs)
 
                 j += 1
 

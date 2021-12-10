@@ -6,6 +6,8 @@ import io
 import zipfile
 import pickle as pkl
 
+from metrics import calc_overfit_metric
+
 class WassersteinLoss():
 
     def __init__(self, sigmoid = True):
@@ -148,6 +150,8 @@ class BaseGAN():
 
         loss_dict["dis_real"] = realLoss
         loss_dict["dis_fake"] = fakeLoss
+
+        loss_dict["overfit_loss"] = calc_overfit_metric(realPred)
 
         totalLoss = (realLoss + fakeLoss) / 2
 
